@@ -28,7 +28,7 @@ async function main() {
   let blocked = false;
 
   // --- 1. Are the values even present and real-looking? --------------------
-  if (!paymentsConfigured) {
+  if (!paymentsConfigured()) {
     line(false, "CASHFREE_APP_ID / CASHFREE_SECRET_KEY are empty in .env.local");
     blocked = true;
   } else if (

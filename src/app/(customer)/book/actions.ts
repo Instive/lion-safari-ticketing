@@ -36,7 +36,7 @@ export async function startBookingAction(
   _prev: BookingState,
   formData: FormData,
 ): Promise<BookingState> {
-  if (!paymentsConfigured) {
+  if (!paymentsConfigured()) {
     return { error: "Online booking is temporarily unavailable. Please book at the counter." };
   }
 

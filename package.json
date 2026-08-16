@@ -18,7 +18,9 @@
     "verify:scanner": "tsx --env-file=.env.local scripts/verify-scanner.ts",
     "verify:auth": "tsx --env-file=.env.local scripts/verify-auth.ts",
     "verify:all": "npm run verify:domain && npm run verify:webhook && npm run verify:scanner && npm run verify:auth",
-    "verify:cashfree": "tsx --env-file=.env.local scripts/verify-cashfree.ts"
+    "verify:cashfree": "tsx --env-file=.env.local scripts/verify-cashfree.ts",
+    "worker:prod": "tsx worker.ts",
+    "db:migrate:prod": "drizzle-kit migrate"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",
@@ -35,6 +37,7 @@
     "rate-limiter-flexible": "^11.2.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "tsx": "^4.23.12",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -49,7 +52,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
     "tailwindcss": "^4",
-    "tsx": "^4.23.12",
     "typescript": "^5"
   }
 }

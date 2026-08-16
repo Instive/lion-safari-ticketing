@@ -132,6 +132,38 @@ worker.ts            background worker entrypoint
 
 Money is stored as integer **paise** everywhere. Dates use the park's timezone (`APP_TIMEZONE`), and server time is authoritative — the scanner's clock is recorded for audit but never trusted for validity.
 
+## Deploying
+
+The architecture dictates the shape: **two long-running Node processes plus managed Postgres.**
+
+| Needs | Why |
+|---|---|
+| A persistent web process | The webhook needs `node:crypto` and the raw request body |
+| A persistent worker process | pg-boss polls and holds a scheduler; it is not a serverless function |
+| Managed Postgres with automatic backups | Spec §12 requires automated backup and tested restore |
+| A region near the park | The gate scanner syncs every 20s over 4G |
+
+This rules out a serverless-only host: `next start` and `npm run worker:prod` both need to stay running.
+
+**Recommended: DigitalOcean App Platform + Managed Postgres, Bangalore (`blr1`).** It is the cheapest option that puts both the app and the database in India, with automated daily backups and point-in-time recovery included. Configure two components from this one repo:
+
+| Component | Build | Run |
+|---|---|---|
+| Web service | `npm ci && npm run build` | `npm start` |
+| Worker | `npm ci` | `npm run worker:prod` |
+
+Give both components the same environment variables, and run `npm run db:migrate` once per release (App Platform pre-deploy job, or manually).
+
+Alternatives, in order: **Railway** if you want the simplest setup and can accept Singapore latency; **Fly.io** for a Mumbai region, but pair it with managed Postgres from Neon or Supabase rather than Fly's unmanaged Postgres, or you own the backups yourself.
+
+Deployment notes specific to this codebase:
+
+- **The build needs no secrets.** Environment access is lazy, so `next build` runs in CI without a database or payment keys. Configuration is validated on first request instead — a bad value fails loudly at runtime, not silently.
+- **`tsx` is a runtime dependency**, because the worker executes `worker.ts` directly. Do not move it to devDependencies or `npm ci --omit=dev` will break the worker.
+- **`npm run worker:prod`** is the production worker command — unlike `npm run worker`, it does not look for `.env.local` and takes configuration from the platform.
+- Set `APP_BASE_URL` to the public HTTPS URL and register `<APP_BASE_URL>/api/payments/webhook/cashfree` in the Cashfree dashboard.
+- Keep `RECONCILE_MIN_AGE_MINUTES=5` in production so the webhook gets first chance.
+
 ## Before going live
 
 - [ ] Real Cashfree credentials in `.env.local`; register the webhook URL `POST /api/payments/webhook/cashfree` in the Cashfree dashboard

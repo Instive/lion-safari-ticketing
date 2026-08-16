@@ -34,17 +34,40 @@ const schema = z.object({
   SUPPORT_PHONE: z.string().default(""),
 });
 
-const parsed = schema.safeParse(process.env);
+export type Env = z.infer<typeof schema>;
 
-if (!parsed.success) {
-  const issues = parsed.error.issues
-    .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
-    .join("\n");
-  throw new Error(`Invalid environment configuration:\n${issues}`);
+let cached: Env | null = null;
+
+function load(): Env {
+  const parsed = schema.safeParse(process.env);
+
+  if (!parsed.success) {
+    const issues = parsed.error.issues
+      .map((i) => `  - ${i.path.join(".")}: ${i.message}`)
+      .join("\n");
+    throw new Error(`Invalid environment configuration:\n${issues}`);
+  }
+
+  return parsed.data;
 }
 
-export const env = parsed.data;
+/**
+ * Validated lazily, on first property access rather than at import.
+ *
+ * This matters for deployment: `next build` imports every module to collect
+ * page data, so eager validation would force real production secrets to be
+ * present in the build environment. Every page here is dynamic, so nothing
+ * actually reads config at build time — and the first request still fails loudly
+ * if configuration is wrong.
+ */
+export const env: Env = new Proxy({} as Env, {
+  get(_target, property: string) {
+    cached ??= load();
+    return cached[property as keyof Env];
+  },
+});
 
 /** Online payments cannot be accepted until Cashfree credentials are present. */
-export const paymentsConfigured =
-  env.CASHFREE_APP_ID !== "" && env.CASHFREE_SECRET_KEY !== "";
+export function paymentsConfigured(): boolean {
+  return env.CASHFREE_APP_ID !== "" && env.CASHFREE_SECRET_KEY !== "";
+}

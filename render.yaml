@@ -1,0 +1,121 @@
+# Render Blueprint for Lion Safari Ticketing.
+#
+# Deploys two persistent processes against one managed Postgres database:
+#   - lion-safari-web    (next start)      — customer, staff, admin, scanner UI + API
+#   - lion-safari-worker (worker:prod)     — ticket delivery + payment reconciliation
+#
+# The worker exists because payment reconciliation and retryable email delivery
+# both need a long-running process holding a queue, not a request/response
+# handler — see src/jobs/queue.ts.
+#
+# Deploy: Render dashboard → New → Blueprint → select this repo. Render reads
+# this file and provisions everything below in one step. Values marked
+# `sync: false` are prompted for during that flow and are never committed.
+#
+# Reference: https://render.com/docs/infrastructure-as-code
+
+databases:
+  - name: lion-safari-db
+    plan: basic-1gb
+    region: singapore
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: lion-safari-web
+    runtime: node
+    plan: starter
+    region: singapore
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    # Runs once per deploy, after build and before the new instance takes
+    # traffic — exactly where a migration belongs (spec: state changes only
+    # through reviewed, ordered steps, never ad hoc).
+    preDeployCommand: npm run db:migrate:prod
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lion-safari-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      # Set this to the Render URL Render assigns on first deploy (or your
+      # custom domain), then redeploy — Cashfree's return_url and the webhook
+      # registration both depend on it being correct.
+      - key: APP_BASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: TICKET_PRICE_PAISE
+        value: "50000"
+      - key: CONVENIENCE_FEE_PAISE
+        value: "2000"
+      - key: APP_TIMEZONE
+        value: Asia/Kolkata
+      - key: SYNC_STALE_THRESHOLD_SECONDS
+        value: "300"
+      - key: RECONCILE_MIN_AGE_MINUTES
+        value: "5"
+      - key: CASHFREE_ENV
+        value: PRODUCTION
+      - key: CASHFREE_APP_ID
+        sync: false
+      - key: CASHFREE_SECRET_KEY
+        sync: false
+      - key: CASHFREE_WEBHOOK_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: SUPPORT_PHONE
+        sync: false
+
+  - type: worker
+    name: lion-safari-worker
+    runtime: node
+    plan: starter
+    region: singapore
+    # No `next build` needed — the worker runs worker.ts directly through tsx
+    # and never touches the Next.js app.
+    buildCommand: npm ci
+    startCommand: npm run worker:prod
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lion-safari-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: APP_BASE_URL
+        sync: false
+      # The worker never verifies staff session cookies (only the web process
+      # does), so this only needs to satisfy env validation — it does not have
+      # to match the web service's value.
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: TICKET_PRICE_PAISE
+        value: "50000"
+      - key: CONVENIENCE_FEE_PAISE
+        value: "2000"
+      - key: APP_TIMEZONE
+        value: Asia/Kolkata
+      - key: SYNC_STALE_THRESHOLD_SECONDS
+        value: "300"
+      - key: RECONCILE_MIN_AGE_MINUTES
+        value: "5"
+      - key: CASHFREE_ENV
+        value: PRODUCTION
+      - key: CASHFREE_APP_ID
+        sync: false
+      - key: CASHFREE_SECRET_KEY
+        sync: false
+      - key: CASHFREE_WEBHOOK_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: SUPPORT_PHONE
+        sync: false
