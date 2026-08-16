@@ -33,11 +33,12 @@ services:
     plan: free
     region: singapore
     buildCommand: npm ci && npm run build
-    startCommand: npm start
-    # Runs once per deploy, after build and before the new instance takes
-    # traffic — exactly where a migration belongs (spec: state changes only
-    # through reviewed, ordered steps, never ad hoc).
-    preDeployCommand: npm run db:migrate:prod
+    # `preDeployCommand` isn't available on the free plan, so the migration
+    # runs at the front of startCommand instead. `drizzle-kit migrate` only
+    # applies pending migrations and is a no-op once the schema is current, so
+    # this is safe to run on every boot — including every free-tier wake from
+    # sleep — and keeps working unchanged if you upgrade off free tier later.
+    startCommand: npm run db:migrate:prod && npm start
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
