@@ -1,0 +1,195 @@
+Lion Safari Online & Counter Ticketing Platform
+Final Production Requirements & Reliability Specification
+Focus: payments, QR ticketing, boarding validation, offline resilience, security and ease of use
+1. Executive Summary
+The platform should provide one unified ticketing system for online and on-site cash bookings. There is no capacity, seat inventory, slot allocation or online/offline quota. The core objective is: record a booking, collect payment, issue a secure ticket, and reliably verify/consume that ticket at the safari boarding gate.
+Online customers can book on the same day and pay online.
+Counter staff can create bookings and collect cash.
+Both flows create the same booking/ticket record.
+Every ticket receives a unique, non-guessable QR token.
+Boarding is controlled by a dedicated QR scanning device at the fixed gate.
+Scanner should validate locally for speed/resilience, while synchronizing with the central server frequently.
+Server remains the ultimate source of truth.
+The system must fail safely: payment uncertainty never creates a confirmed ticket; a stale scanner must clearly warn staff; duplicate ticket use must be prevented wherever technically possible.
+2. Scope and Explicit Non-Goals
+
+3. Core Booking Model
+3.1 Unified booking
+Online and counter bookings must use the same booking lifecycle.
+
+3.2 Important rule: booking is not the same as payment
+A payment attempt is not a booking confirmation.
+Only a verified successful payment event can move an online booking to PAID.
+The browser/payment redirect must never be treated as proof of payment.
+Cash bookings are confirmed by authorized counter staff.
+Ticket generation must happen only after the appropriate confirmation state is reached.
+4. Online Payment: Highest-Priority Reliability Area
+4.1 Payment flow
+Customer selects visitor count and sees the final amount, including any clearly disclosed convenience/booking fee.
+Backend creates a PENDING order with a unique internal order ID.
+Customer is sent to the selected payment provider/checkout.
+Payment provider processes UPI/card payment.
+Backend receives the provider's server-to-server webhook/callback.
+Backend verifies the webhook signature/authenticity and validates amount, currency, order ID and payment status.
+Only then is the booking marked PAID and the ticket activated.
+Confirmation/ticket delivery is asynchronous and retryable.
+4.2 Payment states and edge cases
+
+4.3 Payment security
+Use a reputable PCI-compliant payment provider/checkout; do not store card numbers, CVV or sensitive card credentials.
+Use HTTPS everywhere.
+Verify webhook signatures and reject unsigned/untrusted events.
+Use idempotency keys for payment/order creation where supported.
+Store provider transaction/payment IDs for reconciliation.
+Never trust amount, payment status or order ID supplied by the browser.
+Keep a complete payment audit trail.
+Have an admin reconciliation screen for provider-vs-system mismatches.
+5. QR Ticket Design
+The QR should contain only a secure ticket identifier/token, not personal information or payment details.
+Use a cryptographically random, high-entropy token.
+Do not use predictable values such as LS000001.
+QR should be usable from both a customer's phone and a printed ticket.
+Ticket should visibly show booking ID, date, visitor count, ticket status/instructions and support/recovery information.
+QR generation should be deterministic from the ticket token, but the token itself must be generated securely.
+Ticket PDF/image generation should be retryable and must not create a second ticket record.
+6. QR Scanner / Boarding Gate
+6.1 Recommended hardware architecture
+Because scanning happens only at a fixed boarding gate, use a dedicated Android-based QR/2D scanning terminal with an integrated scanner, screen, speaker and 4G/Wi-Fi if the budget allows. A phone/tablet can be used for the pilot. Avoid expensive enterprise handhelds unless operational testing proves they are necessary.
+Dedicated device preferred: integrated 2D QR scanner + Android + 4G/Wi-Fi + speaker + battery.
+The device must support installation/running of the organization's scanner application/PWA.
+Scanner must produce immediate scan feedback and separate validation feedback.
+Primary connection should use 4G; Wi-Fi can be secondary.
+Provide a charging dock/power source at the gate and a backup power bank/UPS where appropriate.
+6.2 Scanner experience
+
+Normal scan should require no typing.
+The scanner UI should be usable by staff with minimal training.
+Display visitor_count prominently so staff can count the group.
+After successful scan, require an explicit 'Confirm Boarding' action.
+Do not automatically mark a multi-person ticket used merely because the QR was read; scanning and boarding confirmation are separate events.
+7. Local-First QR Validation
+Because the zoo's internet is not fully reliable and same-day online bookings are allowed, the scanner should maintain a locally encrypted cache of active tickets and recent changes. The server remains authoritative.
+7.1 Synchronization
+Scanner syncs incrementally every 15–30 seconds when connected.
+Sync should request only changes since the last successful sync/version.
+Server → scanner: new paid tickets, cancellations, refunds, date/status changes.
+Scanner → server: boarding/usage events and audit events.
+Record last successful sync time and sync version.
+Show 'Synced X seconds ago' on the scanner.
+If last sync exceeds a configured threshold (e.g. 5 minutes), show a prominent warning.
+Do not silently present stale data as real-time.
+7.2 Offline behavior
+If connectivity drops briefly, local validation can continue using the last trusted ticket manifest.
+New bookings made after the last sync cannot be guaranteed to exist on the scanner. The system must make this limitation visible.
+Do not allow staff to assume an unknown QR is valid merely because the scanner is offline.
+If an online customer is not found locally during an outage, provide a controlled fallback: counter/admin lookup over another connection, or wait for sync.
+When connectivity returns, queued boarding events must sync automatically and idempotently.
+All local data should be encrypted and protected by device authentication/application controls.
+7.3 Multiple scanners
+Do not deploy multiple independent offline scanners without a concurrency design. Two scanners can both approve the same ticket before synchronization.
+Initial production recommendation: one scanner at the boarding gate.
+If multiple scanners are later required, implement server-side reservation/consumption coordination or a controlled shared synchronization protocol before enabling them.
+Do not solve multi-scanner duplication by simply copying the same local database to multiple devices.
+8. Five-Person Ticket / Boarding Logic
+A QR can represent multiple visitors. The scan must reveal the purchased visitor count and require staff confirmation.
+Scan QR.
+Validate ticket and display, for example, '5 VISITORS'.
+Staff counts the people physically boarding.
+Staff selects/enters the boarded count.
+System records the boarding event.
+Ticket becomes USED when the intended boarding is completed.
+If the business rule is always all-or-nothing, require boarded_count = visitor_count.
+If partial boarding is allowed later, support remaining_count and multiple controlled boarding events; do not assume this without an explicit operational rule.
+Never let the same ticket produce unlimited boarding events.
+9. Lost / Wrong / Damaged Ticket
+
+10. Counter / Offline Cash Booking
+Counter staff uses the same backend booking system.
+Select visitor count → collect cash → confirm cash received → create CASH_CONFIRMED booking → generate ticket.
+Cash booking must not require a payment gateway.
+Record staff ID, terminal/device ID, timestamp and amount.
+Allow ticket print/reprint.
+Reprint must never create a second booking or second valid ticket.
+Cash closing/reconciliation should show opening cash, bookings, cancellations/refunds and expected cash.
+11. Admin & Operations
+
+12. Security Requirements
+HTTPS/TLS for all network communication.
+Server-side authorization for admin, counter and boarding roles.
+Least-privilege access: scanner users cannot issue refunds or change payments.
+Strong random ticket tokens; never expose database IDs as authorization credentials.
+Validate every API input server-side.
+Rate-limit ticket verification/recovery endpoints.
+Prevent brute-force ticket-token enumeration.
+Do not store card credentials.
+Encrypt sensitive local scanner storage.
+Automatic session expiry/device logout for staff.
+Maintain immutable or append-only audit records for critical events where practical.
+Use server time as the authoritative time; do not trust device clock for ticket validity.
+Back up the production database automatically and test restoration.
+Keep secrets/API keys out of source code; use environment/secret management.
+Separate development, staging and production environments.
+13. Idempotency & Duplicate Protection
+This is one of the most important production-readiness requirements.
+Payment webhook processing must be idempotent.
+Booking creation must be idempotent against accidental double submission.
+Ticket generation must be idempotent.
+Boarding confirmation must be idempotent.
+Sync operations must be resumable and idempotent.
+Retries must never create duplicate bookings, duplicate payments, or duplicate boarding records.
+Use unique database constraints on booking IDs, payment/provider transaction IDs and ticket tokens.
+14. Failure Scenarios to Test Before Go-Live
+
+15. Data Model – Minimum Recommended Entities
+
+16. Recommended Status Machines
+Online payment:
+PENDING → PAID → (REFUND_PENDING → REFUNDED)
+PENDING → FAILED
+Ticket:
+CREATED/ACTIVE → USED
+ACTIVE → CANCELLED/EXPIRED
+Do not allow arbitrary status edits. Use explicit, audited transitions.
+17. UX Principles
+Customer checkout should be short: visitor count → details → payment → ticket.
+Show the final payable amount before payment.
+Do not force customers to create an account unless required.
+Make booking ID and QR easy to find.
+Provide a ticket recovery path.
+Counter workflow should take as few clicks as possible.
+Scanner should be one-screen, large text, large status, loud feedback.
+Use green only for confirmed valid boarding and red for rejection; do not rely on color alone.
+Show clear human-readable reasons for rejection.
+Never show technical errors to customers/staff; log technical details separately.
+18. Suggested Technical Architecture
+A lightweight architecture is sufficient. A responsive web booking application can share the backend with a protected counter/admin application and a dedicated scanner application/PWA.
+Customer Web → API Backend → PostgreSQL                         ↕              Payment Gateway/Webhooks                         ↕                 Scanner Sync API                         ↕               Android Scanner Local DB
+Backend should own all authoritative state.
+PostgreSQL should enforce uniqueness and transactional integrity.
+Payment provider integration should be isolated behind a payment service/module.
+Scanner sync should use versioned/incremental changes.
+Background jobs should handle ticket delivery, webhook retries, reconciliation and sync cleanup.
+19. Go-Live Checklist
+Payment provider UPI/card flow tested in production-like environment.
+Webhook signature verification tested.
+Duplicate webhook and duplicate payment tests passed.
+Payment reconciliation process documented.
+QR scan/validation tested with phone screen and printed ticket.
+Used-ticket rejection tested.
+Same-day booking tested.
+Lost-ticket recovery tested.
+Cash counter and reprint tested.
+Scanner local cache and sync tested.
+Internet loss/recovery tested.
+Power/device restart tested.
+Database backup and restore tested.
+Staff roles and permissions tested.
+Audit logs verified.
+Scanner stale-sync warning verified.
+One complete live pilot run performed before public launch.
+20. Final Recommended Operating Model
+For the initial production deployment, keep the operation deliberately simple: one boarding scanner at the gate, one unified booking database, online UPI/card payments, cash counter bookings, secure QR tickets, local scanner cache with 15–30 second incremental synchronization, and server-side authority. Avoid capacity management, seat allocation and multi-scanner offline complexity unless the zoo's operations later require them.
+21. Priority Order for Development
+
+22. Definition of 'Production Ready'
+The platform is production ready when no customer-facing success state is based solely on browser input, payment redirect, scanner UI or local device state. Every critical financial and ticketing action has a server-side authoritative record, idempotent processing, recovery path, audit trail and tested failure behavior. The boarding experience should nevertheless remain extremely simple: scan → immediate feedback → see visitor count → confirm boarding.

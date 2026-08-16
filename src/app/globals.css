@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/*
+ * Deliberately light-only. These screens are used in daylight at a park gate
+ * and printed on thermal paper; an auto dark mode would hurt both, and the
+ * scanner's green/red states must look identical on every device.
+ */
+:root {
+  --background: #f6f7f5;
+  --surface: #ffffff;
+  --foreground: #14201a;
+  --muted: #5c6b63;
+  --border: #d9e0da;
+  --brand: #14603c;
+  --brand-strong: #0d4a2d;
+  --accent: #b45309;
+  --ok: #15803d;
+  --danger: #b91c1c;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-line: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-accent: var(--accent);
+  --color-ok: var(--ok);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Staff screens are used with fingers, sometimes in a hurry. */
+@utility touch-target {
+  min-height: 3.5rem;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  @page {
+    margin: 8mm;
+  }
+}

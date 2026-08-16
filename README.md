@@ -1,0 +1,146 @@
+# Lion Safari Ticketing
+
+One unified ticketing system for online and counter bookings, with a QR scanner at the boarding gate that keeps working when the internet does not.
+
+Built to the requirements in [Lion_Safari_Ticketing_Production_Requirements.txt](Lion_Safari_Ticketing_Production_Requirements.txt).
+
+## What exists
+
+| Surface | Route | Who |
+|---|---|---|
+| Customer booking | `/`, `/book` | Public, no account |
+| Ticket & recovery | `/ticket/[code]`, `/ticket` | Public, rate limited |
+| Cash counter | `/counter` | COUNTER staff |
+| Gate scanner | `/scanner` | Device key + SCANNER staff |
+| Admin | `/admin` | ADMIN only |
+
+## Running it locally
+
+```bash
+# 1. Postgres (macOS example)
+brew install postgresql@16 && brew services start postgresql@16
+createdb lion_safari
+
+# 2. Configure
+cp .env.example .env.local
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"  # → SESSION_SECRET
+
+# 3. Schema and seed accounts
+npm install
+npm run db:migrate
+npm run db:seed          # prints the gate device API key ONCE — copy it
+
+# 4. Two processes
+npm run dev              # web
+npm run worker           # ticket email + payment reconciliation
+```
+
+Seeded logins: `admin` / `counter` / `gate` (dev passwords are printed by the seed).
+Enter the device key at `/scanner` to enrol the gate terminal.
+
+## Testing the online payment flow locally
+
+Everything except online payment works with no third-party accounts at all: the counter sells tickets, the scanner boards them, admin manages them. Only `/book` needs Cashfree.
+
+**1. Get sandbox keys.** Sign up at [merchant.cashfree.com](https://merchant.cashfree.com), switch the dashboard to **Sandbox / Test mode**, then Developers → API Keys. Put them in `.env.local`:
+
+```bash
+CASHFREE_APP_ID=<sandbox app id>
+CASHFREE_SECRET_KEY=<sandbox secret key>
+CASHFREE_WEBHOOK_SECRET=<same secret key — Cashfree signs with it>
+```
+
+**2. Check they work before you click anything:**
+
+```bash
+npm run verify:cashfree
+```
+
+This is the answer to "why did booking fail" — it reports missing keys, placeholder keys, keys rejected by Cashfree, and whether webhooks can reach you.
+
+**3. Restart `npm run dev`.** Env changes are only read at startup.
+
+### Webhooks cannot reach localhost
+
+Cashfree calls our webhook server-to-server, so it cannot reach `http://localhost:3000`. Two options:
+
+- **No tunnel (simplest).** Pay in sandbox, then wait: the reconciliation job polls Cashfree directly and confirms the booking. Set `RECONCILE_MIN_AGE_MINUTES=1` in `.env.local` so this takes about a minute, and **keep `npm run worker` running** — without the worker nothing confirms. The ticket page polls, so it appears on its own.
+- **With a tunnel (realistic).** `cloudflared tunnel --url http://localhost:3000` (or ngrok), set `APP_BASE_URL` to the public URL, restart dev, and register `<public-url>/api/payments/webhook/cashfree` in the Cashfree dashboard under Developers → Webhooks. Bookings then confirm in seconds, exactly as in production.
+
+Either way the booking is confirmed by verified server-side evidence — the fallback is slower, never weaker.
+
+## Verifying it works
+
+These scripts exercise the failure scenarios from spec §14 against a running dev server. They print what they did, so you can read the guarantees rather than trust them.
+
+```bash
+npm run verify:domain    # idempotency: double booking, double boarding, all-or-nothing
+npm run verify:webhook   # duplicate / tampered / forged / unsigned / underpaid webhooks
+npm run verify:scanner   # sync, offline replay, used-ticket rejection, device lockout
+npm run verify:auth      # role boundaries, forged cookie, instant revocation
+npm run verify:all       # all of the above
+npm run verify:cashfree  # preflight: are the payment credentials actually valid?
+```
+
+`verify:webhook` proves the payment logic without Cashfree credentials — it signs its own payloads with `CASHFREE_WEBHOOK_SECRET`. Only a real end-to-end payment needs live sandbox keys.
+
+## How the critical paths work
+
+**A booking is never confirmed by the browser.** The customer's return from checkout only polls our own database. A booking becomes `PAID` in exactly one place — [process.ts](src/domain/payment/process.ts) — after a signature-verified webhook whose amount matches what we recorded when the order was created.
+
+**Nothing can happen twice.** Every idempotency rule is a database constraint, not just application logic:
+
+| Retry that could duplicate | Constraint that prevents it |
+|---|---|
+| Double-submitted booking form | `bookings.idempotency_key` unique |
+| Replayed payment webhook | `payment_events.provider_event_id` unique |
+| Re-run ticket issuance | `tickets.booking_id` unique |
+| Re-sent offline boarding event | `boarding_events.client_event_id` unique |
+| Duplicate order creation | `payments.provider_order_id` unique |
+
+**A lost webhook cannot strand a customer.** [reconcile-payments.ts](src/jobs/handlers/reconcile-payments.ts) sweeps every two minutes, asks the provider directly about stale `PENDING` orders, and feeds the answer through the same processing path as a webhook — so the amount check, idempotency and audit trail all still apply.
+
+**The gate scanner stores no credentials.** Its offline cache holds a SHA-256 *hash* of each ticket token, never the token, and no customer name, phone or email. A stolen terminal yields nothing usable, and deactivating it in `/admin/devices` locks it out on its next sync.
+
+**Stale data is never presented as live.** The scanner shows "synced Xs ago" continuously and switches to a full-width warning past `SYNC_STALE_THRESHOLD_SECONDS`. An unrecognised QR while offline is refused with instructions, never assumed valid.
+
+## Swapping the payment provider
+
+Cashfree lives entirely in [src/domain/payment/cashfree/](src/domain/payment/cashfree/). Everything else speaks only the normalized types in [provider.ts](src/domain/payment/provider.ts). To add Razorpay: implement `PaymentProvider` in a sibling folder and add it to the registry in [index.ts](src/domain/payment/index.ts). No booking, ticket or webhook logic changes.
+
+## Layout
+
+```
+src/
+├── domain/          framework-free core — the rules live here
+│   ├── booking/     lifecycle, pricing, state machine, refunds
+│   ├── ticket/      issuance (idempotent), invalidation
+│   ├── boarding/    validation + all-or-nothing boarding
+│   ├── payment/     provider interface, Cashfree adapter, webhook processing
+│   ├── scanner/     incremental sync feed
+│   └── audit/       append-only audit + scanner change log
+├── app/
+│   ├── (customer)/  public booking and ticket pages
+│   ├── (staff)/     admin + counter (session + role guarded)
+│   ├── scanner/     gate PWA (device-key auth, IndexedDB cache)
+│   └── api/         payment webhook, scanner sync/events/lookup
+├── jobs/            pg-boss handlers (delivery, reconciliation)
+├── db/              Drizzle schema + migrations
+└── lib/             auth, rate limiting, money, time, QR, mail
+worker.ts            background worker entrypoint
+```
+
+Money is stored as integer **paise** everywhere. Dates use the park's timezone (`APP_TIMEZONE`), and server time is authoritative — the scanner's clock is recorded for audit but never trusted for validity.
+
+## Before going live
+
+- [ ] Real Cashfree credentials in `.env.local`; register the webhook URL `POST /api/payments/webhook/cashfree` in the Cashfree dashboard
+- [ ] `RESEND_API_KEY` + verified sending domain, and a real `SUPPORT_PHONE`
+- [ ] Change every seeded password; create per-person staff accounts
+- [ ] HTTPS in front of the app; `APP_BASE_URL` set to the public URL
+- [ ] Automated database backups **and a tested restore**
+- [ ] Run `npm run verify:all` against staging, then one live pilot: a real payment and a real scan at the gate
+
+### Deliberately deferred (v1 scope)
+
+Automated test suites, Docker packaging, error monitoring, WhatsApp/SMS delivery, PDF ticket attachments, cash shift reconciliation, and multi-scanner support. Multi-scanner in particular needs server-side consumption coordination before a second gate device is deployed — two offline scanners can otherwise both approve the same ticket.
