@@ -16,7 +16,10 @@
 
 databases:
   - name: lion-safari-db
-    plan: basic-1gb
+    # Free tier for initial testing only: expires 30 days after creation (14-day
+    # grace period, then Render deletes the database and all its data). Upgrade
+    # this to a paid plan before any real Cashfree payment runs against it.
+    plan: free
     region: singapore
     postgresMajorVersion: "16"
 
@@ -24,7 +27,10 @@ services:
   - type: web
     name: lion-safari-web
     runtime: node
-    plan: starter
+    # Free tier: sleeps after 15 minutes idle, ~1 min cold start on the next
+    # request. Fine for internal testing; upgrade to `starter` before sending
+    # real customers here.
+    plan: free
     region: singapore
     buildCommand: npm ci && npm run build
     startCommand: npm start
@@ -57,8 +63,11 @@ services:
         value: "300"
       - key: RECONCILE_MIN_AGE_MINUTES
         value: "5"
+      # SANDBOX while testing (works with Cashfree's test/sandbox keys below).
+      # Switch to PRODUCTION only once you've upgraded off the free plan and
+      # are ready to take real payments.
       - key: CASHFREE_ENV
-        value: PRODUCTION
+        sync: false
       - key: CASHFREE_APP_ID
         sync: false
       - key: CASHFREE_SECRET_KEY
@@ -75,7 +84,7 @@ services:
   - type: worker
     name: lion-safari-worker
     runtime: node
-    plan: starter
+    plan: free
     region: singapore
     # No `next build` needed — the worker runs worker.ts directly through tsx
     # and never touches the Next.js app.
@@ -105,8 +114,11 @@ services:
         value: "300"
       - key: RECONCILE_MIN_AGE_MINUTES
         value: "5"
+      # SANDBOX while testing (works with Cashfree's test/sandbox keys below).
+      # Switch to PRODUCTION only once you've upgraded off the free plan and
+      # are ready to take real payments.
       - key: CASHFREE_ENV
-        value: PRODUCTION
+        sync: false
       - key: CASHFREE_APP_ID
         sync: false
       - key: CASHFREE_SECRET_KEY
