@@ -6,7 +6,7 @@ import { env } from "@/lib/env";
 import { businessDate, formatVisitDate } from "@/lib/time";
 import { BookingForm } from "./booking-form";
 
-export const metadata = { title: "Book your safari — Lion Safari" };
+export const metadata = { title: "Book your safari — Chhatbir Zoo" };
 export const dynamic = "force-dynamic";
 
 export default function BookPage() {
@@ -16,7 +16,7 @@ export default function BookPage() {
         <Link href="/" className="text-muted text-sm hover:text-foreground">
           ← Back
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold">Book your safari</h1>
+        <h1 className="mt-2 font-display text-4xl tracking-wide text-brand">Book Your Safari</h1>
       </div>
 
       <BookingForm

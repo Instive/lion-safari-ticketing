@@ -11,7 +11,7 @@ import { limitTicketLookup } from "@/lib/rate-limit";
 import { env } from "@/lib/env";
 import { PaymentPending } from "./payment-pending";
 
-export const metadata = { title: "Your ticket — Lion Safari" };
+export const metadata = { title: "Your ticket — Chhatbir Zoo" };
 export const dynamic = "force-dynamic";
 
 /**

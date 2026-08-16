@@ -3,7 +3,7 @@ import Link from "next/link";
 import { env } from "@/lib/env";
 import { RecoverForm } from "./recover-form";
 
-export const metadata = { title: "Find my ticket — Lion Safari" };
+export const metadata = { title: "Find my ticket — Chhatbir Zoo" };
 export const dynamic = "force-dynamic";
 
 export default function RecoverTicketPage() {
@@ -12,7 +12,7 @@ export default function RecoverTicketPage() {
       <Link href="/" className="text-muted text-sm hover:text-foreground">
         ← Back
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold">Find my ticket</h1>
+      <h1 className="mt-2 font-display text-4xl tracking-wide text-brand">Find My Ticket</h1>
       <p className="text-muted mt-1 mb-6 text-sm">
         Enter your booking code and the mobile number you booked with.
       </p>

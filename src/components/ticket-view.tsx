@@ -33,8 +33,8 @@ export async function TicketView({ ticket }: { ticket: TicketViewData }) {
   return (
     <article className="mx-auto w-full max-w-sm rounded-xl border border-line bg-surface p-6 print:border-black">
       <header className="text-center">
-        <h1 className="text-lg font-semibold text-brand">Lion Safari</h1>
-        <p className="text-muted text-xs uppercase tracking-wide">Entry ticket</p>
+        <h1 className="font-display text-2xl tracking-wide text-brand">Chhatbir Zoo</h1>
+        <p className="text-muted text-xs uppercase tracking-wide">Lion &amp; Deer Safari — Entry ticket</p>
       </header>
 
       <div className="my-5 flex justify-center">
