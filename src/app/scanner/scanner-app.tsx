@@ -20,11 +20,12 @@ import {
 } from "@/lib/scanner/sync-client";
 import { feedbackAccepted, feedbackRejected, feedbackScanned, primeAudio } from "@/lib/scanner/feedback";
 import { Enrolment } from "./enrolment";
+import { SignOutBar } from "./sign-out-bar";
 import { SyncBanner } from "./sync-banner";
 
 const SYNC_INTERVAL_MS = 20_000;
 
-export function ScannerApp() {
+export function ScannerApp({ staffName, staffRole }: { staffName: string; staffRole: string }) {
   // Device key and connectivity are external state, read through a store so
   // render stays pure and hydration cannot mismatch.
   const deviceKey = useSyncExternalStore(
@@ -242,6 +243,8 @@ export function ScannerApp() {
           Hold the guest&apos;s QR code in front of the camera
         </p>
       ) : null}
+
+      <SignOutBar name={staffName} role={staffRole} />
     </div>
   );
 }

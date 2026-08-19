@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { BrandMark } from "@/components/staff/brand-mark";
 import { getSessionStaff } from "@/lib/auth/session";
-import { signOutAction } from "./actions";
+import { signOutAction } from "@/lib/auth/sign-out";
 
 export default async function StaffLayout({ children }: LayoutProps<"/">) {
   const staff = await getSessionStaff();

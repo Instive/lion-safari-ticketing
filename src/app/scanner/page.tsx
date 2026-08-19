@@ -19,6 +19,6 @@ export default async function ScannerPage() {
   // the key alone should not be enough to open the gate UI on a stray device.
   // This page is deliberately outside the (staff) group so it keeps its own
   // full-screen dark chrome instead of inheriting the staff nav header.
-  await requirePageStaff(["SCANNER"]);
-  return <ScannerApp />;
+  const staff = await requirePageStaff(["SCANNER"]);
+  return <ScannerApp staffName={staff.name} staffRole={staff.role} />;
 }
