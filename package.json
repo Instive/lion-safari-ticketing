@@ -17,11 +17,12 @@
     "worker": "tsx --env-file=.env.local worker.ts",
     "verify:scanner": "tsx --env-file=.env.local scripts/verify-scanner.ts",
     "verify:auth": "tsx --env-file=.env.local scripts/verify-auth.ts",
-    "verify:all": "npm run verify:domain && npm run verify:webhook && npm run verify:scanner && npm run verify:auth && npm run verify:counter",
+    "verify:all": "npm run verify:domain && npm run verify:webhook && npm run verify:scanner && npm run verify:auth && npm run verify:counter && npm run verify:hosts",
     "verify:cashfree": "tsx --env-file=.env.local scripts/verify-cashfree.ts",
     "worker:prod": "tsx worker.ts",
     "db:migrate:prod": "drizzle-kit migrate",
-    "verify:counter": "tsx --env-file=.env.local scripts/verify-counter.ts"
+    "verify:counter": "tsx --env-file=.env.local scripts/verify-counter.ts",
+    "verify:hosts": "tsx --env-file=.env.local scripts/verify-hosts.ts"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",

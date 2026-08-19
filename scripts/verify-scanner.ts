@@ -11,9 +11,9 @@ import { db, pool } from "@/db";
 import { boardingEvents, devices, tickets } from "@/db/schema";
 import { createCounterBooking } from "@/domain/booking/create";
 import { generateApiKey, sha256 } from "@/lib/codes";
-import { env } from "@/lib/env";
+import { staffBaseUrl } from "@/lib/env";
 
-const BASE = env.APP_BASE_URL;
+const BASE = staffBaseUrl();
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {

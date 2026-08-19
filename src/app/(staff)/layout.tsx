@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { homeFor } from "@/lib/auth/guards";
 import { getSessionStaff } from "@/lib/auth/session";
 import { signOutAction } from "./actions";
 
@@ -13,7 +14,9 @@ export default async function StaffLayout({ children }: LayoutProps<"/">) {
       <header className="no-print border-b border-line bg-surface">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-4">
-            <Link href="/" className="font-semibold text-brand">
+            {/* Not "/" — the public site may be on a different host, where the
+                staff host serves no home page. */}
+            <Link href={homeFor(staff.role)} className="font-semibold text-brand">
               Lion Safari
             </Link>
             <nav className="flex gap-3 text-sm">

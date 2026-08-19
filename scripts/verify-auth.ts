@@ -10,9 +10,9 @@ import { eq } from "drizzle-orm";
 import { db, pool } from "@/db";
 import { staffSessions, staffUsers, type StaffRole } from "@/db/schema";
 import { hashPassword } from "@/lib/auth/password";
-import { env } from "@/lib/env";
+import { env, staffBaseUrl } from "@/lib/env";
 
-const BASE = env.APP_BASE_URL;
+const BASE = staffBaseUrl();
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {

@@ -19,10 +19,10 @@ import { bookings, staffSessions, staffUsers, tickets } from "@/db/schema";
 import { confirmBoarding } from "@/domain/boarding/confirm";
 import { createCounterBooking } from "@/domain/booking/create";
 import { cancelBooking } from "@/domain/booking/refund";
-import { env } from "@/lib/env";
+import { env, staffBaseUrl } from "@/lib/env";
 import { businessDate } from "@/lib/time";
 
-const BASE = env.APP_BASE_URL;
+const BASE = staffBaseUrl();
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {

@@ -6,7 +6,16 @@ import { z } from "zod";
  */
 const schema = z.object({
   DATABASE_URL: z.string().min(1),
+  /** The public, customer-facing origin. Cashfree return URLs and ticket email links use it. */
   APP_BASE_URL: z.url(),
+  /**
+   * The staff operations origin, when staff runs on its own hostname.
+   *
+   * Leave unset to serve everything from APP_BASE_URL as before — `src/proxy.ts`
+   * treats an absent value as "single host" and gates nothing. Setting it splits
+   * the app: staff paths serve only here, customer paths only on APP_BASE_URL.
+   */
+  STAFF_BASE_URL: z.url().optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
   SESSION_SECRET: z.string().min(32),
@@ -70,4 +79,12 @@ export const env: Env = new Proxy({} as Env, {
 /** Online payments cannot be accepted until Cashfree credentials are present. */
 export function paymentsConfigured(): boolean {
   return env.CASHFREE_APP_ID !== "" && env.CASHFREE_SECRET_KEY !== "";
+}
+
+/**
+ * Where staff pages live. Falls back to the public origin when the hosts are
+ * not split, so callers work unchanged in single-host mode.
+ */
+export function staffBaseUrl(): string {
+  return env.STAFF_BASE_URL ?? env.APP_BASE_URL;
 }

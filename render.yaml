@@ -47,10 +47,24 @@ services:
           property: connectionString
       - key: NODE_ENV
         value: production
-      # Set this to the Render URL Render assigns on first deploy (or your
-      # custom domain), then redeploy — Cashfree's return_url and the webhook
-      # registration both depend on it being correct.
+      # The PUBLIC, customer-facing origin. Set this to the Render URL Render
+      # assigns on first deploy (or your custom domain), then redeploy —
+      # Cashfree's return_url and the webhook registration both depend on it
+      # being correct.
       - key: APP_BASE_URL
+        sync: false
+      # The staff operations origin, e.g. https://staff.your-domain.in.
+      #
+      # Leave this UNSET to serve staff and customer pages from one host, which
+      # is how the app behaves today. Setting it makes src/proxy.ts split the
+      # two: /login /counter /admin /scanner /api/scanner serve only from this
+      # host and 404 everywhere else, and the customer pages 404 here.
+      #
+      # Set it only AFTER the staff subdomain has verified and issued TLS in
+      # Render. Setting it early makes /login 404 on every other hostname —
+      # including this service's .onrender.com URL — which locks you out. The
+      # recovery is to clear this value and redeploy.
+      - key: STAFF_BASE_URL
         sync: false
       - key: SESSION_SECRET
         generateValue: true
@@ -98,6 +112,9 @@ services:
           property: connectionString
       - key: NODE_ENV
         value: production
+      # Must match the web service's APP_BASE_URL: the worker builds the
+      # "View your ticket" link in the ticket email from it. Note Render does not
+      # share these between services, so they can silently drift — set both.
       - key: APP_BASE_URL
         sync: false
       # The worker never verifies staff session cookies (only the web process
