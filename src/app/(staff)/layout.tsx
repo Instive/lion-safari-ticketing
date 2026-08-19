@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { homeFor } from "@/lib/auth/guards";
+import { BrandMark } from "@/components/staff/brand-mark";
 import { getSessionStaff } from "@/lib/auth/session";
 import { signOutAction } from "./actions";
 
@@ -14,10 +14,10 @@ export default async function StaffLayout({ children }: LayoutProps<"/">) {
       <header className="no-print border-b border-line bg-surface">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-4">
-            {/* Not "/" — the public site may be on a different host, where the
-                staff host serves no home page. */}
-            <Link href={homeFor(staff.role)} className="font-semibold text-brand">
-              Lion Safari
+            {/* The staff launcher, not the public home — on a split host "/"
+                is the customer site and is not served here. */}
+            <Link href="/staff" aria-label="Staff home">
+              <BrandMark size="sm" />
             </Link>
             <nav className="flex gap-3 text-sm">
               {staff.role === "ADMIN" ? (

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { BrandMark } from "@/components/staff/brand-mark";
 import { getSessionStaff } from "@/lib/auth/session";
 import { homeFor } from "@/lib/auth/guards";
 import { LoginForm } from "./login-form";
@@ -15,9 +16,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
     <main className="flex-1 grid place-items-center p-6">
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold text-brand">Lion Safari</h1>
-          <p className="text-muted mt-1 text-sm">Staff sign in</p>
+        <div className="mb-8 flex flex-col items-center gap-4 text-center">
+          <BrandMark size="lg" />
+          <p className="text-muted text-sm">Staff sign in</p>
         </div>
 
         {expired ? (

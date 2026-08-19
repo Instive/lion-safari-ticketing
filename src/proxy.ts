@@ -24,7 +24,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * public host. `/api/health` is not listed here either — it is host-agnostic
  * infrastructure, see NEUTRAL_PREFIXES below.
  */
-const STAFF_PREFIXES = ["/login", "/counter", "/admin", "/scanner", "/api/scanner"];
+const STAFF_PREFIXES = ["/login", "/staff", "/counter", "/admin", "/scanner", "/api/scanner"];
 
 /**
  * Infrastructure paths that must answer on EVERY hostname, whatever the split
@@ -71,6 +71,14 @@ export function proxy(request: NextRequest) {
   if (matches(pathname, NEUTRAL_PREFIXES)) return NextResponse.next();
 
   const onStaffHost = hostnameOf(request) === STAFF_HOST;
+
+  // The bare staff domain shows the staff launcher rather than 404ing. A
+  // rewrite (not a redirect) keeps the address bar on the domain the person
+  // typed, while `/` on the public host still serves the customer home.
+  if (onStaffHost && pathname === "/") {
+    return NextResponse.rewrite(new URL("/staff", request.url));
+  }
+
   if (onStaffHost === matches(pathname, STAFF_PREFIXES)) return NextResponse.next();
 
   // Rewriting to a path with no route renders `app/not-found.tsx` with a 404,

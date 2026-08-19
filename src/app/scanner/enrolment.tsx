@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 
 import { primeAudio } from "@/lib/scanner/feedback";
@@ -14,7 +15,24 @@ export function Enrolment({ onEnrolled }: { onEnrolled: (key: string) => void })
 
   return (
     <div className="flex min-h-dvh flex-col justify-center bg-neutral-950 p-6 text-white">
-      <h1 className="text-2xl font-bold">Set up this scanner</h1>
+      <div className="flex items-center gap-3">
+        <Image
+          src="/lion_deer_safari_logo.jpeg"
+          alt=""
+          width={48}
+          height={48}
+          className="rounded-full ring-2 ring-emerald-500/40"
+          priority
+        />
+        <span className="leading-tight">
+          <span className="block font-display text-2xl tracking-wide">Chhatbir Zoo</span>
+          <span className="block text-[10px] uppercase tracking-[0.18em] text-neutral-400">
+            Lion &amp; Deer Safari
+          </span>
+        </span>
+      </div>
+
+      <h1 className="mt-8 text-2xl font-bold">Set up this scanner</h1>
       <p className="mt-2 text-neutral-400">
         Enter the device key from the admin portal. You only need to do this once.
       </p>

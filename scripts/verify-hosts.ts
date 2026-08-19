@@ -64,8 +64,10 @@ function visit(host: string, path: string): Promise<number> {
   });
 }
 
-const STAFF_PATHS = ["/login", "/counter", "/admin", "/scanner"];
-const PUBLIC_PATHS = ["/", "/book", "/ticket"];
+const STAFF_PATHS = ["/login", "/staff", "/counter", "/admin", "/scanner"];
+// "/" is deliberately absent: it is served on BOTH hosts — the customer home on
+// the public one, the staff launcher on the staff one — and is checked on its own.
+const PUBLIC_PATHS = ["/book", "/ticket"];
 
 async function main() {
   if (!STAFF_HOST) {
@@ -130,7 +132,20 @@ async function main() {
   );
 
   // ---------------------------------------------------------------------
-  console.log("\n6. The health check answers on every hostname");
+  console.log("\n6. The bare domain serves the right thing on each host");
+  const staffRoot = await visit(STAFF_HOST, "/");
+  check("/ is not 404 on the staff host", staffRoot !== 404, `${staffRoot}`);
+  const publicRoot = await visit(PUBLIC_HOST, "/");
+  check("/ is not 404 on the public host", publicRoot !== 404, `${publicRoot}`);
+  // The launcher is reachable at its own path too, so the staff header can link
+  // to it without depending on the rewrite.
+  const staffPath = await visit(STAFF_HOST, "/staff");
+  check("/staff is not 404 on the staff host", staffPath !== 404, `${staffPath}`);
+  const staffPathPublic = await visit(PUBLIC_HOST, "/staff");
+  check("/staff 404s on the public host", staffPathPublic === 404, `${staffPathPublic}`);
+
+  // ---------------------------------------------------------------------
+  console.log("\n7. The health check answers on every hostname");
   // Render health-checks the service through its own custom domain, which for
   // this app is the staff domain. Gating /api/health by host 404s that check
   // and the deploy hangs forever waiting for a 200 — this is a real failure
@@ -148,7 +163,7 @@ async function main() {
   }
 
   // ---------------------------------------------------------------------
-  console.log("\n7. A forwarded port does not change how a host is classified");
+  console.log("\n8. A forwarded port does not change how a host is classified");
   const staffPathPortedHost = await visit(`${STAFF_HOST.split(":")[0]}:10000`, "/login");
   check(
     "/login is not 404 on the staff hostname with a port",
@@ -157,7 +172,7 @@ async function main() {
   );
 
   // ---------------------------------------------------------------------
-  console.log("\n8. Paths that must ignore the split still answer");
+  console.log("\n9. Paths that must ignore the split still answer");
   // Cashfree posts to the public host; a 404 here would silently drop payment
   // confirmations, so this is the check that matters most in this file.
   const webhook = await visit(PUBLIC_HOST, "/api/payments/webhook/cashfree");
