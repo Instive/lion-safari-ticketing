@@ -10,7 +10,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const staff = await getSessionStaff();
   if (staff) redirect(homeFor(staff.role));
 
-  const { denied } = await searchParams;
+  const { denied, expired } = await searchParams;
 
   return (
     <main className="flex-1 grid place-items-center p-6">
@@ -20,7 +20,11 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           <p className="text-muted mt-1 text-sm">Staff sign in</p>
         </div>
 
-        {denied ? (
+        {expired ? (
+          <p className="mb-4 rounded-lg border border-accent/30 bg-accent/5 px-4 py-3 text-sm text-accent">
+            Your session ended. Please sign in again — nothing you entered was lost.
+          </p>
+        ) : denied ? (
           <p className="mb-4 rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
             Your account does not have access to that screen.
           </p>

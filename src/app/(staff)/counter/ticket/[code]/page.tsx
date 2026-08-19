@@ -6,7 +6,10 @@ import { db } from "@/db";
 import { bookings, tickets } from "@/db/schema";
 import { TicketView } from "@/components/ticket-view";
 import { requirePageStaff } from "@/lib/auth/guards";
+import { businessDate } from "@/lib/time";
+import { ClearDraftSaleKey } from "./clear-draft-sale-key";
 import { PrintButton } from "./print-button";
+import { VoidSaleForm } from "./void-sale-form";
 
 export const metadata = { title: "Ticket — Lion Safari" };
 
@@ -17,7 +20,7 @@ export const metadata = { title: "Ticket — Lion Safari" };
 export default async function CounterTicketPage({
   params,
 }: PageProps<"/counter/ticket/[code]">) {
-  await requirePageStaff(["COUNTER"]);
+  const staff = await requirePageStaff(["COUNTER"]);
   const { code } = await params;
 
   const [row] = await db
@@ -27,6 +30,7 @@ export default async function CounterTicketPage({
       amountTotal: bookings.amountTotal,
       customerName: bookings.customerName,
       visitDate: bookings.visitDate,
+      createdByStaffId: bookings.createdByStaffId,
       token: tickets.token,
       status: tickets.status,
     })
@@ -37,8 +41,17 @@ export default async function CounterTicketPage({
 
   if (!row) notFound();
 
+  // Same eligibility the server action itself re-checks — computed here only
+  // to decide whether to show the void affordance at all, never trusted as
+  // the actual authorization (voidOwnSaleAction re-verifies independently).
+  const canVoid =
+    row.status === "ACTIVE" &&
+    row.visitDate === businessDate() &&
+    (staff.role === "ADMIN" || row.createdByStaffId === staff.id);
+
   return (
     <main className="mx-auto w-full max-w-md px-4 py-6">
+      <ClearDraftSaleKey />
       <div className="no-print mb-4 rounded-xl border border-ok/30 bg-ok/5 px-4 py-3">
         <p className="font-semibold text-ok">Ticket ready</p>
         <p className="text-muted text-sm">
@@ -57,6 +70,8 @@ export default async function CounterTicketPage({
           Next sale
         </Link>
       </div>
+
+      {canVoid ? <VoidSaleForm bookingCode={row.bookingCode} /> : null}
     </main>
   );
 }
