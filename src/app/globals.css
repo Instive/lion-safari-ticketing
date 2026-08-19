@@ -72,3 +72,111 @@ body {
     margin: 8mm;
   }
 }
+
+/*
+ * ---------------------------------------------------------------------------
+ * Public site only, from here down.
+ *
+ * These classes are used by the customer-facing pages (the `(customer)` route
+ * group) to give the site the formal, official look of a government portal:
+ * a tricolour rule under the masthead, a notices ticker, and restrained
+ * scroll-in motion. Staff, counter and scanner screens never reference them.
+ *
+ * Every animation here is wrapped so that it degrades to a static layout when
+ * the visitor has asked for reduced motion — required for the accessibility
+ * baseline a public-sector site is held to (WCAG 2.3.3).
+ * ---------------------------------------------------------------------------
+ */
+
+/* Keyboard users land here first; visible only when focused. */
+.skip-link {
+  position: absolute;
+  left: 0.5rem;
+  top: -4rem;
+  z-index: 60;
+  border-radius: 0.5rem;
+  background: var(--brand);
+  padding: 0.65rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #fff;
+  transition: top 150ms ease;
+}
+.skip-link:focus {
+  top: 0.5rem;
+}
+
+/* The national tricolour hairline that sits under an official masthead. */
+.gov-tricolour {
+  height: 3px;
+  background: linear-gradient(
+    to right,
+    #ff9933 0 33.33%,
+    #ffffff 33.33% 66.66%,
+    #138808 66.66% 100%
+  );
+}
+
+/*
+ * Notices ticker. The track holds the notice list twice, so translating it by
+ * exactly -50% loops seamlessly. It pauses on hover and on keyboard focus so a
+ * notice can actually be read (WCAG 2.2.2).
+ */
+.ticker-track {
+  display: flex;
+  width: max-content;
+  animation: ticker-scroll 42s linear infinite;
+}
+.ticker-viewport:hover .ticker-track,
+.ticker-viewport:focus-within .ticker-track,
+.ticker-track[data-paused="true"] {
+  animation-play-state: paused;
+}
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Sections fade up once as they scroll into view; see components/site/reveal.tsx. */
+.reveal {
+  transition:
+    opacity 600ms ease-out,
+    transform 600ms ease-out;
+}
+.reveal[data-shown="false"] {
+  opacity: 0;
+  transform: translateY(16px);
+}
+.reveal[data-shown="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Very slow drift on the hero photograph, so the masthead is not dead still. */
+.hero-pan {
+  animation: hero-pan 32s ease-in-out infinite alternate;
+}
+@keyframes hero-pan {
+  from {
+    transform: scale(1.04) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.12) translate3d(-1.2%, -1.2%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track,
+  .hero-pan {
+    animation: none;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}

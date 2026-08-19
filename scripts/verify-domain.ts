@@ -121,7 +121,7 @@ async function main() {
   );
   check(
     "amount = visitors × price",
-    row!.amountTotal === 5 * Number(process.env.TICKET_PRICE_PAISE ?? 50000),
+    row!.amountTotal === 5 * Number(process.env.TICKET_PRICE_PAISE ?? 7500),
     `amount=${row!.amountTotal}`,
   );
 

@@ -19,3 +19,12 @@ export function paiseToRupeeString(paise: number): string {
 export function rupeeStringToPaise(rupees: string | number): number {
   return Math.round(Number(rupees) * 100);
 }
+
+/**
+ * Display-only, for marketing copy where a whole-rupee fare reads better
+ * without the trailing paise ("₹75" rather than "₹75.00"). Any amount that is
+ * not a whole number of rupees still shows in full.
+ */
+export function formatPaiseCompact(paise: number): string {
+  return paise % 100 === 0 ? formatPaise(paise).replace(/\.00$/, "") : formatPaise(paise);
+}
