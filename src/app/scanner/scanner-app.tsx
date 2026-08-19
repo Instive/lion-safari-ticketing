@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import QrScanner from "qr-scanner";
 
-import { findByToken, scannerDb, type CachedTicket } from "@/lib/scanner/db";
+import { findByToken, getMeta, scannerDb, type CachedTicket } from "@/lib/scanner/db";
+import { judge, type ScanOutcome } from "@/lib/scanner/judge";
 import {
   clearDeviceKey,
   DeviceUnauthorizedError,
@@ -20,11 +21,6 @@ import {
 import { feedbackAccepted, feedbackRejected, feedbackScanned, primeAudio } from "@/lib/scanner/feedback";
 import { Enrolment } from "./enrolment";
 import { SyncBanner } from "./sync-banner";
-
-type ScanOutcome =
-  | { kind: "VALID"; ticket: CachedTicket }
-  | { kind: "REJECTED"; message: string; detail?: string; ticket?: CachedTicket | null }
-  | { kind: "UNKNOWN_OFFLINE" };
 
 const SYNC_INTERVAL_MS = 20_000;
 
@@ -93,7 +89,7 @@ export function ScannerApp() {
       const local = await findByToken(token);
 
       if (local) {
-        const verdict = judge(local);
+        const verdict = judge(local, (await getMeta()).visitDate);
         setOutcome(verdict);
         if (verdict.kind === "VALID") feedbackAccepted();
         else feedbackRejected();
@@ -248,36 +244,6 @@ export function ScannerApp() {
       ) : null}
     </div>
   );
-}
-
-function judge(ticket: CachedTicket): ScanOutcome {
-  const today = new Date().toISOString().slice(0, 10);
-
-  if (ticket.status === "USED") {
-    return {
-      kind: "REJECTED",
-      message: "ALREADY USED",
-      detail: ticket.usedAt
-        ? `Boarded at ${new Date(ticket.usedAt).toLocaleTimeString()}`
-        : "This ticket has already been used.",
-      ticket,
-    };
-  }
-  if (ticket.status === "CANCELLED") {
-    return { kind: "REJECTED", message: "CANCELLED", detail: "This booking was cancelled.", ticket };
-  }
-  if (ticket.status === "EXPIRED") {
-    return { kind: "REJECTED", message: "EXPIRED", detail: "This ticket is no longer valid.", ticket };
-  }
-  if (ticket.visitDate !== today) {
-    return {
-      kind: "REJECTED",
-      message: "WRONG DATE",
-      detail: `This ticket is for ${ticket.visitDate}.`,
-      ticket,
-    };
-  }
-  return { kind: "VALID", ticket };
 }
 
 async function hashOf(token: string): Promise<string> {

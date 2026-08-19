@@ -12,6 +12,9 @@ import { boardingEvents, devices, tickets } from "@/db/schema";
 import { createCounterBooking } from "@/domain/booking/create";
 import { generateApiKey, sha256 } from "@/lib/codes";
 import { staffBaseUrl } from "@/lib/env";
+import { judge } from "@/lib/scanner/judge";
+import type { CachedTicket } from "@/lib/scanner/db";
+import { businessDate } from "@/lib/time";
 
 const BASE = staffBaseUrl();
 
@@ -205,12 +208,63 @@ async function main() {
   });
   check("event push responds 401", pushAfter.status === 401, `got ${pushAfter.status}`);
 
+  checkJudge();
+
   console.log(
     failures === 0
       ? "\nAll scanner scenarios behaved correctly.\n"
       : `\n${failures} check(s) FAILED.\n`,
   );
   if (failures > 0) process.exitCode = 1;
+}
+
+/**
+ * The gate's admit/turn-away decision, checked directly.
+ *
+ * This exists because a real failure shipped here: `judge` derived "today" from
+ * `new Date().toISOString()`, which is always UTC, so every valid ticket was
+ * rejected as WRONG DATE between midnight and 05:30 IST. The park day must come
+ * from the server's sync payload and nothing else — so these run with the
+ * process forced onto a timezone whose UTC date differs from the park's.
+ */
+function checkJudge() {
+  console.log("\n9. The gate verdict never depends on the device clock");
+
+  const parkDay = businessDate();
+  const ticket = (visitDate: string, status: CachedTicket["status"]): CachedTicket =>
+    ({ ticketId: "t", tokenHash: "h", status, visitorCount: 2, visitDate, usedAt: null }) as CachedTicket;
+
+  const originalTz = process.env.TZ;
+  // Pacific/Kiritimati is UTC+14 and Pacific/Midway is UTC-11: on any given
+  // instant these two sit on different calendar dates, so if the verdict moved
+  // with the device timezone at all, one of them would disagree.
+  for (const tz of ["Pacific/Kiritimati", "Pacific/Midway", "UTC"]) {
+    process.env.TZ = tz;
+    const verdict = judge(ticket(parkDay, "ACTIVE"), parkDay);
+    check(`today's ticket is VALID with device TZ=${tz}`, verdict.kind === "VALID", verdict.kind);
+  }
+  process.env.TZ = originalTz;
+
+  const stale = judge(ticket("2020-01-01", "ACTIVE"), parkDay);
+  check(
+    "a ticket for another day is still rejected",
+    stale.kind === "REJECTED" && stale.message === "WRONG DATE",
+    stale.kind === "REJECTED" ? stale.message : stale.kind,
+  );
+
+  const unsynced = judge(ticket(parkDay, "ACTIVE"), null);
+  check(
+    "never-synced scanner says SYNC NEEDED, not WRONG DATE",
+    unsynced.kind === "REJECTED" && unsynced.message === "SYNC NEEDED",
+    unsynced.kind === "REJECTED" ? unsynced.message : unsynced.kind,
+  );
+
+  const used = judge(ticket(parkDay, "USED"), parkDay);
+  check(
+    "an already-used ticket is rejected before the date is considered",
+    used.kind === "REJECTED" && used.message === "ALREADY USED",
+    used.kind === "REJECTED" ? used.message : used.kind,
+  );
 }
 
 main()

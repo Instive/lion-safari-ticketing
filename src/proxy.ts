@@ -21,9 +21,18 @@ import { NextResponse, type NextRequest } from "next/server";
  * so page and API must be served from the same origin.
  *
  * `/api/payments/webhook/cashfree` is deliberately absent: Cashfree posts to the
- * public host, and `/api/health` must answer on Render's internal hostname.
+ * public host. `/api/health` is not listed here either — it is host-agnostic
+ * infrastructure, see NEUTRAL_PREFIXES below.
  */
 const STAFF_PREFIXES = ["/login", "/counter", "/admin", "/scanner", "/api/scanner"];
+
+/**
+ * Infrastructure paths that must answer on EVERY hostname, whatever the split
+ * says. Render health-checks the service through its own custom domain — for
+ * this app that is the staff domain — so gating /api/health by host makes the
+ * health check 404 and the deploy hangs forever waiting for a 200.
+ */
+const NEUTRAL_PREFIXES = ["/api/health"];
 
 /**
  * Read from `process.env` rather than `@/lib/env` on purpose — the proxy runs in
@@ -35,11 +44,21 @@ const STAFF_PREFIXES = ["/login", "/counter", "/admin", "/scanner", "/api/scanne
  * deployment keep working.
  */
 const STAFF_HOST = process.env.STAFF_BASE_URL
-  ? new URL(process.env.STAFF_BASE_URL).host
+  ? new URL(process.env.STAFF_BASE_URL).hostname
   : null;
 
-function isStaffPath(pathname: string): boolean {
-  return STAFF_PREFIXES.some(
+/**
+ * Hostname only, never host:port. Render terminates TLS and forwards the
+ * request to the app on an internal port, so the Host header can arrive as
+ * `staff.example.com:10000`; comparing with the port attached would classify
+ * that as the public host and 404 every staff page in production.
+ */
+function hostnameOf(request: NextRequest): string {
+  return (request.headers.get("host") ?? "").split(":")[0]!.toLowerCase();
+}
+
+function matches(pathname: string, prefixes: string[]): boolean {
+  return prefixes.some(
     // The `/` guard stops `/administrivia` from matching `/admin`.
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
@@ -48,9 +67,11 @@ function isStaffPath(pathname: string): boolean {
 export function proxy(request: NextRequest) {
   if (!STAFF_HOST) return NextResponse.next();
 
-  // Both are compared including any port, so `staff.localhost:3000` works locally.
-  const onStaffHost = (request.headers.get("host") ?? "") === STAFF_HOST;
-  if (onStaffHost === isStaffPath(request.nextUrl.pathname)) return NextResponse.next();
+  const { pathname } = request.nextUrl;
+  if (matches(pathname, NEUTRAL_PREFIXES)) return NextResponse.next();
+
+  const onStaffHost = hostnameOf(request) === STAFF_HOST;
+  if (onStaffHost === matches(pathname, STAFF_PREFIXES)) return NextResponse.next();
 
   // Rewriting to a path with no route renders `app/not-found.tsx` with a 404,
   // which is what a human typing the wrong hostname should see.

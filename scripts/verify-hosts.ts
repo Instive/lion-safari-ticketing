@@ -130,16 +130,38 @@ async function main() {
   );
 
   // ---------------------------------------------------------------------
-  console.log("\n6. Paths that must ignore the split still answer");
+  console.log("\n6. The health check answers on every hostname");
+  // Render health-checks the service through its own custom domain, which for
+  // this app is the staff domain. Gating /api/health by host 404s that check
+  // and the deploy hangs forever waiting for a 200 — this is a real failure
+  // that reached Render, not a hypothetical.
+  for (const [label, host] of [
+    ["staff host", STAFF_HOST],
+    ["public host", PUBLIC_HOST],
+    ["Render internal host", "lion-safari-web.onrender.com"],
+    // Render forwards to the app on an internal port, so the Host header can
+    // carry one. A staff hostname with a port must still read as the staff host.
+    ["staff host with a port", `${STAFF_HOST.split(":")[0]}:10000`],
+  ] as const) {
+    const status = await visit(host, "/api/health");
+    check(`/api/health answers on the ${label}`, status === 200, `${status}`);
+  }
+
+  // ---------------------------------------------------------------------
+  console.log("\n7. A forwarded port does not change how a host is classified");
+  const staffPathPortedHost = await visit(`${STAFF_HOST.split(":")[0]}:10000`, "/login");
+  check(
+    "/login is not 404 on the staff hostname with a port",
+    staffPathPortedHost !== 404,
+    `${staffPathPortedHost}`,
+  );
+
+  // ---------------------------------------------------------------------
+  console.log("\n8. Paths that must ignore the split still answer");
   // Cashfree posts to the public host; a 404 here would silently drop payment
   // confirmations, so this is the check that matters most in this file.
   const webhook = await visit(PUBLIC_HOST, "/api/payments/webhook/cashfree");
   check("Cashfree webhook is reachable on the public host", webhook !== 404, `${webhook}`);
-  // Render health-checks over its own internal hostname, which is neither of
-  // the two configured hosts.
-  const health = await visit("lion-safari-web.onrender.com", "/api/health");
-  check("health check answers on Render's internal host", health === 200, `${health}`);
-
   console.log(
     failures === 0
       ? "\nHost split held on every check.\n"
