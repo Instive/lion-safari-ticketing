@@ -193,7 +193,14 @@ export function ScannerApp({ staffName, staffRole }: { staffName: string; staffR
   );
 
   if (!enrolled) {
-    return <Enrolment onEnrolled={(key) => setDeviceKey(key)} />;
+    // The sign-out bar belongs here too: someone who signs in on the wrong
+    // device would otherwise be stuck on the enrolment screen with no way back.
+    return (
+      <div className="flex min-h-dvh flex-col bg-neutral-950 text-white">
+        <Enrolment onEnrolled={(key) => setDeviceKey(key)} />
+        <SignOutBar name={staffName} role={staffRole} />
+      </div>
+    );
   }
 
   return (

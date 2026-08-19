@@ -14,7 +14,7 @@ export function Enrolment({ onEnrolled }: { onEnrolled: (key: string) => void })
   const [key, setKey] = useState("");
 
   return (
-    <div className="flex min-h-dvh flex-col justify-center bg-neutral-950 p-6 text-white">
+    <div className="flex flex-1 flex-col justify-center bg-neutral-950 p-6 text-white">
       <div className="flex items-center gap-3">
         <Image
           src="/lion_deer_safari_logo.jpeg"

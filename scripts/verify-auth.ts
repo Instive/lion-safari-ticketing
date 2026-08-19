@@ -45,6 +45,12 @@ async function sessionFor(role: StaffRole): Promise<{ staffId: string; cookie: s
   return { staffId: user!.id, cookie: `ls_staff_session=${rawToken}` };
 }
 
+/** Fetches a page body, for checks that assert on what actually rendered. */
+async function body(path: string, cookie: string): Promise<string> {
+  const res = await fetch(`${BASE}${path}`, { headers: { cookie } });
+  return res.text();
+}
+
 /** Follows no redirects, so we can observe the redirect itself. */
 async function visit(path: string, cookie?: string) {
   const res = await fetch(`${BASE}${path}`, {
@@ -141,6 +147,25 @@ async function main() {
     expired.status === 307 && (expired.location?.includes("/login") ?? false),
     `${expired.status} → ${expired.location}`,
   );
+
+  // ---------------------------------------------------------------------
+  console.log("\n8. Every signed-in role can sign back out");
+  // The scanner sits outside the (staff) route group, so it does not inherit
+  // the staff header's sign-out — it shipped with no way out at all, in both
+  // the enrolled and the not-yet-enrolled state. A role that cannot sign out
+  // cannot hand the device to the next shift.
+  // Fresh sessions on purpose: section 6 deactivates the COUNTER user above, so
+  // reusing those cookies here would fail on a revocation rather than on the
+  // thing being checked.
+  for (const [role, path] of [
+    ["ADMIN", "/admin"],
+    ["COUNTER", "/counter"],
+    ["SCANNER", "/scanner"],
+  ] as const) {
+    const fresh = await sessionFor(role);
+    const html = await body(path, fresh.cookie);
+    check(`${role} sees a sign-out control on ${path}`, html.includes("Sign out"));
+  }
 
   console.log(
     failures === 0
