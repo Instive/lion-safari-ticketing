@@ -51,6 +51,7 @@ export default async function CustomerTicketPage({
       createdAt: bookings.createdAt,
       token: tickets.token,
       ticketStatus: tickets.status,
+      ticketIssuedAt: tickets.issuedAt,
     })
     .from(bookings)
     .leftJoin(tickets, eq(tickets.bookingId, bookings.id))
@@ -93,7 +94,7 @@ export default async function CustomerTicketPage({
     );
   }
 
-  if (!row.token || !row.ticketStatus) {
+  if (!row.token || !row.ticketStatus || !row.ticketIssuedAt) {
     // Confirmed but the ticket row is a moment behind; it is being issued.
     return (
       <Shell>
@@ -112,6 +113,7 @@ export default async function CustomerTicketPage({
           visitorCount: row.visitorCount,
           visitDate: row.visitDate,
           amountTotal: row.amountTotal,
+          issuedAt: row.ticketIssuedAt,
           customerName: row.customerName,
         }}
       />

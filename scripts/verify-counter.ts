@@ -12,7 +12,7 @@
  * Usage: npm run verify:counter   (dev server must be running)
  */
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db, pool } from "@/db";
 import { bookings, staffSessions, staffUsers, tickets } from "@/db/schema";
@@ -20,7 +20,8 @@ import { confirmBoarding } from "@/domain/boarding/confirm";
 import { createCounterBooking } from "@/domain/booking/create";
 import { cancelBooking } from "@/domain/booking/refund";
 import { env, staffBaseUrl } from "@/lib/env";
-import { businessDate } from "@/lib/time";
+import { formatPaise } from "@/lib/money";
+import { businessDate, formatDateTime } from "@/lib/time";
 
 const BASE = staffBaseUrl();
 
@@ -100,6 +101,14 @@ async function main() {
   check("responds 200", ticketPage.status === 200, `got ${ticketPage.status}`);
   check("shows the booking code", ticketPage.body.includes(sale.booking.bookingCode));
   check("shows the visitor count", ticketPage.body.includes(">3<"));
+  // A printed ticket outlives the screen it came from, so it has to say when
+  // it was issued — from the server clock, never the counter device's.
+  check("shows the issue time", ticketPage.body.includes("Issued"));
+  check(
+    "the issue time is the server's, to the minute",
+    ticketPage.body.includes(formatDateTime(ticketRows[0]!.issuedAt)),
+    formatDateTime(ticketRows[0]!.issuedAt),
+  );
 
   const stillOneTicket = await db
     .select()
@@ -245,6 +254,39 @@ async function main() {
     "ticket stays USED even if cancelBooking is called on it directly",
     afterAttempt!.status === "USED",
     `status=${afterAttempt!.status}`,
+  );
+
+  // ---------------------------------------------------------------------
+  console.log("\n10. The shift total on /counter counts confirmed cash only");
+  // Computed here by filtering in JS, independently of the SQL SUM the page
+  // itself runs — a voided sale's money left the drawer, and counting it
+  // would tell staff to hand over cash they no longer have.
+  const todaysSales = await db
+    .select({ status: bookings.status, amountTotal: bookings.amountTotal })
+    .from(bookings)
+    .where(
+      and(
+        eq(bookings.channel, "COUNTER"),
+        eq(bookings.createdByStaffId, counter.staffId),
+        eq(bookings.visitDate, businessDate()),
+      ),
+    );
+  const confirmedCash = todaysSales
+    .filter((row) => row.status === "CASH_CONFIRMED")
+    .reduce((sum, row) => sum + row.amountTotal, 0);
+  const cashIncludingVoided = todaysSales.reduce((sum, row) => sum + row.amountTotal, 0);
+
+  const shiftPage = await get("/counter", counter.cookie);
+  check(
+    "shows the confirmed-cash total",
+    shiftPage.body.includes(formatPaise(confirmedCash)),
+    formatPaise(confirmedCash),
+  );
+  check(
+    "does NOT show a total that includes the voided sale",
+    confirmedCash === cashIncludingVoided ||
+      !shiftPage.body.includes(formatPaise(cashIncludingVoided)),
+    formatPaise(cashIncludingVoided),
   );
 
   console.log(

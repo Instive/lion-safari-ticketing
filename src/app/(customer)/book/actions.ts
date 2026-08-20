@@ -88,7 +88,7 @@ function friendlyFieldError(field: unknown): string {
     case "customerEmail":
       return "Please enter a valid email address — your ticket is sent there.";
     case "visitorCount":
-      return `Please choose between 1 and ${MAX_VISITORS_PER_BOOKING} visitors.`;
+      return "Please choose at least one visitor.";
     default:
       return "Please check your details and try again.";
   }

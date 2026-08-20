@@ -61,6 +61,13 @@ body {
   min-height: 3.5rem;
 }
 
+/*
+ * Printing means one thing in this system: a ticket coming off the counter's
+ * 80mm thermal roll. That printer has no colour, no greys worth relying on,
+ * and about 72mm of usable width — so the page is sized in millimetres, the
+ * ticket is laid out to that width, and everything on it is forced to solid
+ * black on white rather than trusting the printer to dither the brand green.
+ */
 @media print {
   .no-print {
     display: none !important;
@@ -69,7 +76,32 @@ body {
     background: #fff;
   }
   @page {
-    margin: 8mm;
+    size: 80mm auto;
+    margin: 3mm;
+  }
+
+  .ticket {
+    width: 74mm;
+    max-width: 74mm;
+    border: 0;
+    box-shadow: none;
+    background: #fff;
+  }
+  /* Thermal output is 1-bit: anything not solid black prints as noise. */
+  .ticket,
+  .ticket * {
+    color: #000 !important;
+    border-color: #000 !important;
+  }
+  /* Sized in mm, not px: this is the one element whose physical size on the
+     paper decides whether the gate scanner reads it first time. */
+  .ticket-qr {
+    width: 42mm !important;
+    height: 42mm !important;
+  }
+  .ticket-animal {
+    height: 11mm !important;
+    width: auto !important;
   }
 }
 

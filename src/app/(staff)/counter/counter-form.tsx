@@ -39,6 +39,13 @@ type Props = {
 /** How long a sale is allowed to hang before offering an explicit way out. */
 const STUCK_AFTER_MS = 10_000;
 
+function clamp(count: number, maxVisitors: number): number {
+  return Math.min(maxVisitors, Math.max(1, count));
+}
+
+/** Quick-pick counts. Anything larger is reached with the +/− stepper. */
+const QUICK_COUNTS = Array.from({ length: 10 }, (_, i) => i + 1);
+
 /**
  * On a genuinely degraded connection (packets trickling, not a hard
  * disconnect), the request to the server can hang far longer than a normal
@@ -54,7 +61,15 @@ const STUCK_AFTER_MS = 10_000;
  * the sessionStorage-persisted idempotency key above makes a reload-and-retry
  * safe rather than risking a duplicate sale.
  */
-function ConfirmButton({ total }: { total: string }) {
+function ConfirmButton({
+  total,
+  visitors,
+  ready,
+}: {
+  total: string;
+  visitors: number;
+  ready: boolean;
+}) {
   const { pending } = useFormStatus();
   // Set only from the timeout callback below (an async, external-event
   // response — the pattern the purity rule itself calls out as correct), and
@@ -78,10 +93,29 @@ function ConfirmButton({ total }: { total: string }) {
     <>
       <button
         type="submit"
-        disabled={pending}
-        className="w-full rounded-xl bg-ok px-4 py-5 text-lg font-bold text-white transition-colors hover:brightness-95 disabled:opacity-60"
+        disabled={pending || !ready}
+        className="flex w-full items-center justify-between gap-4 rounded-xl bg-ok px-5 py-5 text-left text-white transition-colors hover:brightness-95 disabled:opacity-60"
       >
-        {pending ? "Creating ticket…" : `Cash received — ${total}`}
+        <span className="text-lg font-bold">
+          {pending ? "Creating ticket…" : ready ? "Cash received" : "Enter the visitor count"}
+        </span>
+        {pending || !ready ? (
+          <span
+            aria-hidden
+            className={
+              pending
+                ? "h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white"
+                : "hidden"
+            }
+          />
+        ) : (
+          <span className="text-right leading-tight">
+            <span className="block text-xl font-bold tabular-nums">{total}</span>
+            <span className="block text-xs font-medium text-white/80">
+              {visitors} visitor{visitors === 1 ? "" : "s"}
+            </span>
+          </span>
+        )}
       </button>
 
       {pending && stuck ? (
@@ -107,7 +141,13 @@ function ConfirmButton({ total }: { total: string }) {
 
 export function CounterForm({ perVisitorPaise, maxVisitors, idempotencyKey }: Props) {
   const [state, formAction] = useActionState<CashSaleState, FormData>(createCashSaleAction, {});
-  const [visitors, setVisitors] = useState(1);
+  /**
+   * The count as typed, not as a number: it is the single source of truth for
+   * the quick-pick buttons, the stepper and the box staff can type into, and
+   * keeping it as text is what lets the box be cleared mid-edit without the
+   * form silently falling back to some other count.
+   */
+  const [countText, setCountText] = useState("1");
 
   // Server snapshot matches the SSR-rendered hidden input (no hydration
   // mismatch). Client snapshot prefers an unfinished-draft key already in
@@ -127,54 +167,98 @@ export function CounterForm({ perVisitorPaise, maxVisitors, idempotencyKey }: Pr
     }
   }, [idempotencyKey]);
 
-  const total = formatPaise(visitors * perVisitorPaise);
+  const parsed = Number.parseInt(countText, 10);
+  const ready = Number.isInteger(parsed) && parsed >= 1 && parsed <= maxVisitors;
+  // An unreadable box prices nothing and confirms nothing — the button below
+  // stays disabled rather than guessing a count for money that's changing hands.
+  const visitors = ready ? parsed : 0;
+  const totalPaise = visitors * perVisitorPaise;
+  const total = formatPaise(totalPaise);
+
+  function pick(next: number) {
+    setCountText(String(clamp(next, maxVisitors)));
+  }
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} className="space-y-5">
       <input type="hidden" name="visitorCount" value={visitors} />
       <input type="hidden" name="idempotencyKey" value={draftKey} />
 
-      <section>
-        <h2 className="mb-3 text-sm font-medium text-muted">How many visitors?</h2>
-
-        <div className="grid grid-cols-5 gap-2">
-          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setVisitors(n)}
-              aria-pressed={visitors === n}
-              className={`rounded-xl border py-5 text-xl font-bold transition-colors ${
-                visitors === n
-                  ? "border-brand bg-brand text-white"
-                  : "border-line bg-surface hover:border-brand"
-              }`}
-            >
-              {n}
-            </button>
-          ))}
+      <section className="rounded-xl border border-line bg-surface p-4">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-sm font-semibold">How many visitors?</h2>
+          <span className="text-muted text-xs">Tap, step or type</span>
         </div>
 
-        <div className="mt-3 flex items-center justify-center gap-4">
+        <div className="grid grid-cols-5 gap-2">
+          {QUICK_COUNTS.map((n) => {
+            const selected = visitors === n;
+            return (
+              <button
+                key={n}
+                type="button"
+                onClick={() => pick(n)}
+                aria-pressed={selected}
+                className={`rounded-xl border py-5 text-xl font-bold tabular-nums transition-colors ${
+                  selected
+                    ? "border-brand bg-brand text-white ring-2 ring-brand/25"
+                    : "border-line bg-background hover:border-brand"
+                }`}
+              >
+                {n}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Larger groups are typed straight into the box rather than tapped up
+            to one at a time. */}
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-background px-3 py-2">
           <button
             type="button"
-            onClick={() => setVisitors((v) => Math.max(1, v - 1))}
-            className="touch-target w-16 rounded-xl border border-line bg-surface text-2xl font-bold"
+            onClick={() => pick(visitors - 1)}
+            disabled={visitors <= 1}
+            className="touch-target w-16 shrink-0 rounded-xl border border-line bg-surface text-2xl font-bold disabled:opacity-40"
             aria-label="One fewer visitor"
           >
             −
           </button>
-          <output className="min-w-24 text-center text-3xl font-bold tabular-nums">
-            {visitors}
-          </output>
+          <span className="text-center leading-tight">
+            <input
+              id="visitor-count"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step={1}
+              value={countText}
+              onChange={(event) => setCountText(event.target.value)}
+              onFocus={(event) => event.target.select()}
+              aria-label="Number of visitors"
+              // Native spinners would sit right next to the −/+ buttons and do the same job.
+              className="w-28 rounded-lg border border-line bg-surface px-2 py-1 text-center text-3xl font-bold tabular-nums outline-none [appearance:textfield] focus:border-brand [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
+            <span className="text-muted mt-0.5 block text-xs">
+              {ready ? `visitor${visitors === 1 ? "" : "s"}` : "enter a number"}
+            </span>
+          </span>
           <button
             type="button"
-            onClick={() => setVisitors((v) => Math.min(maxVisitors, v + 1))}
-            className="touch-target w-16 rounded-xl border border-line bg-surface text-2xl font-bold"
+            onClick={() => pick(visitors + 1)}
+            disabled={!ready || visitors >= maxVisitors}
+            className="touch-target w-16 shrink-0 rounded-xl border border-line bg-surface text-2xl font-bold disabled:opacity-40"
             aria-label="One more visitor"
           >
             +
           </button>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-line bg-surface p-4">
+        <div className="flex items-baseline justify-between">
+          <span className="text-muted text-sm tabular-nums">
+            {ready ? `${visitors} × ${formatPaise(perVisitorPaise)}` : `${formatPaise(perVisitorPaise)} per visitor`}
+          </span>
+          <span className="text-3xl font-bold tabular-nums">{ready ? total : "—"}</span>
         </div>
       </section>
 
@@ -202,25 +286,20 @@ export function CounterForm({ perVisitorPaise, maxVisitors, idempotencyKey }: Pr
         </div>
       </details>
 
-      <div className="rounded-xl border border-line bg-surface p-4">
-        <div className="flex items-baseline justify-between">
-          <span className="text-muted text-sm">
-            {visitors} × {formatPaise(perVisitorPaise)}
-          </span>
-          <span className="text-2xl font-bold">{total}</span>
-        </div>
-      </div>
-
       {state.error ? (
         <p role="alert" className="rounded-lg bg-danger/5 px-3 py-2 text-sm text-danger">
           {state.error}
         </p>
       ) : null}
 
-      <ConfirmButton total={total} />
-      <p className="text-muted text-center text-xs">
-        Collect the cash before confirming. The ticket prints on the next screen.
-      </p>
+      {/* Pinned to the bottom of the screen: the confirm action stays reachable
+          however far the page has been scrolled, on a short counter display. */}
+      <div className="sticky bottom-0 z-10 -mx-4 border-t border-line bg-background/95 px-4 pb-4 pt-3 backdrop-blur">
+        <ConfirmButton total={total} visitors={visitors} ready={ready} />
+        <p className="text-muted mt-2 text-center text-xs">
+          Collect the cash before confirming. The ticket prints on the next screen.
+        </p>
+      </div>
     </form>
   );
 }

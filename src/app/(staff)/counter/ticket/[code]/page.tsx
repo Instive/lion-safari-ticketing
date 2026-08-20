@@ -33,6 +33,7 @@ export default async function CounterTicketPage({
       createdByStaffId: bookings.createdByStaffId,
       token: tickets.token,
       status: tickets.status,
+      issuedAt: tickets.issuedAt,
     })
     .from(bookings)
     .innerJoin(tickets, eq(tickets.bookingId, bookings.id))
@@ -49,14 +50,34 @@ export default async function CounterTicketPage({
     row.visitDate === businessDate() &&
     (staff.role === "ADMIN" || row.createdByStaffId === staff.id);
 
+  // The ticket itself no longer prints a status badge (a "Valid" stamp on
+  // paper only says what was true at print time), so this banner is where
+  // staff read it — live, on screen, before handing anything over.
+  const banner =
+    row.status === "ACTIVE"
+      ? {
+          tone: "border-ok/30 bg-ok/5 text-ok",
+          title: "Ticket ready — valid",
+          note: "Hand this to the guest. Reprinting is safe — it is the same ticket.",
+        }
+      : row.status === "USED"
+        ? {
+            tone: "border-accent/40 bg-accent/5 text-accent",
+            title: "Already used at the gate",
+            note: "This group has boarded. Reprinting will not make it valid again.",
+          }
+        : {
+            tone: "border-danger/30 bg-danger/5 text-danger",
+            title: row.status === "CANCELLED" ? "Cancelled — not valid" : "Expired — not valid",
+            note: "Do not hand this to a guest. Start a new sale if they still need entry.",
+          };
+
   return (
     <main className="mx-auto w-full max-w-md px-4 py-6">
       <ClearDraftSaleKey />
-      <div className="no-print mb-4 rounded-xl border border-ok/30 bg-ok/5 px-4 py-3">
-        <p className="font-semibold text-ok">Ticket ready</p>
-        <p className="text-muted text-sm">
-          Hand this to the guest. Reprinting is safe — it is the same ticket.
-        </p>
+      <div className={`no-print mb-4 rounded-xl border px-4 py-3 ${banner.tone}`}>
+        <p className="font-semibold">{banner.title}</p>
+        <p className="text-muted text-sm">{banner.note}</p>
       </div>
 
       <TicketView ticket={row} />

@@ -1,7 +1,14 @@
 import { env } from "@/lib/env";
 import { DomainError } from "../errors";
 
-export const MAX_VISITORS_PER_BOOKING = 20;
+/**
+ * Not a policy limit — a group of any realistic size can be sold one ticket.
+ * This exists only so a mis-typed count can never push `amount_total` past the
+ * 32-bit integer the column stores it in, which would fail as a database error
+ * instead of a clear message. At the current fare that ceiling is ~286,000
+ * visitors; 10,000 sits far below it and far above any real safari group.
+ */
+export const MAX_VISITORS_PER_BOOKING = 10_000;
 
 export type Quote = {
   visitorCount: number;
@@ -24,7 +31,7 @@ export function quoteFor(visitorCount: number, channel: "ONLINE" | "COUNTER"): Q
   if (visitorCount > MAX_VISITORS_PER_BOOKING) {
     throw new DomainError(
       "TOO_MANY_VISITORS",
-      `A single booking can cover up to ${MAX_VISITORS_PER_BOOKING} visitors. Please make more than one booking.`,
+      `That is more visitors than one booking can hold. Please split it into smaller bookings.`,
     );
   }
 

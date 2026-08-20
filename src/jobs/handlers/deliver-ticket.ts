@@ -7,7 +7,7 @@ import { writeAudit } from "@/domain/audit";
 import { env } from "@/lib/env";
 import { sendMail } from "@/lib/mail";
 import { formatPaise } from "@/lib/money";
-import { formatVisitDate } from "@/lib/time";
+import { formatDateTime, formatVisitDate } from "@/lib/time";
 import type { DeliverTicketJob } from "../queue";
 
 /**
@@ -29,6 +29,7 @@ export async function deliverTicket(job: DeliverTicketJob): Promise<void> {
       customerEmail: bookings.customerEmail,
       token: tickets.token,
       ticketStatus: tickets.status,
+      issuedAt: tickets.issuedAt,
     })
     .from(bookings)
     .innerJoin(tickets, eq(tickets.bookingId, bookings.id))
@@ -63,6 +64,7 @@ export async function deliverTicket(job: DeliverTicketJob): Promise<void> {
       visitorCount: row.visitorCount,
       visitDate: row.visitDate,
       amountTotal: row.amountTotal,
+      issuedAt: row.issuedAt,
       customerName: row.customerName,
       ticketUrl,
     }),
@@ -89,6 +91,7 @@ function ticketEmailHtml(t: {
   visitorCount: number;
   visitDate: string;
   amountTotal: number;
+  issuedAt: Date;
   customerName: string | null;
   ticketUrl: string;
 }): string {
@@ -109,6 +112,7 @@ function ticketEmailHtml(t: {
       <tr><td style="padding:6px 0;color:#5c6b63">Visit date</td><td style="text-align:right;font-weight:600">${formatVisitDate(t.visitDate)}</td></tr>
       <tr><td style="padding:6px 0;color:#5c6b63">Visitors</td><td style="text-align:right;font-weight:700;font-size:16px">${t.visitorCount}</td></tr>
       <tr><td style="padding:6px 0;color:#5c6b63">Amount paid</td><td style="text-align:right;font-weight:600">${formatPaise(t.amountTotal)}</td></tr>
+      <tr><td style="padding:6px 0;color:#5c6b63">Issued</td><td style="text-align:right;font-weight:600">${formatDateTime(t.issuedAt)}</td></tr>
     </table>
 
     <p style="margin:24px 0 0;text-align:center">
