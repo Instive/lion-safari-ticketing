@@ -53,67 +53,77 @@ export async function TicketView({ ticket }: { ticket: TicketViewData }) {
 
   return (
     <article className="ticket mx-auto w-full max-w-sm overflow-hidden rounded-2xl border border-line bg-surface print:rounded-none">
-      <header className="flex items-center justify-center gap-3 border-b border-line px-3 py-3">
+      <header className="flex items-center justify-center gap-3 px-3 pb-2.5 pt-3">
         <Image
           src="/lion-transparent-opt.png"
           alt=""
           width={44}
           height={54}
-          className="ticket-animal h-12 w-auto shrink-0"
+          className="ticket-animal h-11 w-auto shrink-0"
         />
         <div className="min-w-0 text-center leading-tight">
           <h1 className="font-display text-2xl tracking-wide text-brand">M.C.Z.P Chhatbir</h1>
-          <p className="text-muted text-[10px] uppercase tracking-[0.28em]">
-            — Wildlife Safari —
-          </p>
+          <p className="text-muted text-[9px] uppercase tracking-[0.3em]">Wildlife Safari</p>
         </div>
         <Image
           src="/deer-transparent-opt.png"
           alt=""
           width={46}
           height={54}
-          className="ticket-animal h-12 w-auto shrink-0"
+          className="ticket-animal h-11 w-auto shrink-0"
         />
       </header>
 
+      <Perforation />
+
       {/* The scan target, front and centre. */}
-      <div className="px-4 pb-4 pt-4 text-center">
-        <div className="mx-auto inline-block rounded-xl border border-line bg-white p-2.5 print:rounded-none">
+      <div className="px-4 pb-3 pt-3 text-center">
+        <p className="mx-auto inline-block rounded-full bg-brand px-3 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-white print:border print:border-black print:bg-white print:text-black">
+          Scan at the gate
+        </p>
+
+        {/* No frame around the code — the white padding is kept because it is
+            the QR's quiet zone, which scanners need. */}
+        <div className="mx-auto mt-2.5 inline-block bg-white p-2">
           {/* eslint-disable-next-line @next/next/no-img-element -- data URI, no loader needed */}
           <img
             src={qr}
             alt={`QR code for booking ${ticket.bookingCode}`}
-            width={220}
-            height={220}
-            className={`ticket-qr h-auto w-[min(220px,58vw)] ${usable ? "" : "opacity-25"}`}
+            width={200}
+            height={200}
+            className={`ticket-qr h-auto w-[min(200px,54vw)] ${usable ? "" : "opacity-25"}`}
           />
         </div>
 
-        <p className={`no-print mt-3 text-base font-bold ${usable ? "text-ok" : "text-danger"}`}>
+        <p className="text-muted mt-2 text-[9px] uppercase tracking-[0.22em]">Ticket no.</p>
+        <p className="font-mono text-sm font-semibold tracking-[0.2em]">{ticket.bookingCode}</p>
+
+        <p className={`no-print mt-2.5 text-sm font-bold ${usable ? "text-ok" : "text-danger"}`}>
           {copy.label}
         </p>
-        <p className="text-muted mt-1 text-xs print:mt-2">{copy.note}</p>
-        <p className="text-muted mt-2 text-[11px] uppercase tracking-wide">
-          Ticket no.{" "}
-          <span className="font-mono tracking-widest text-foreground">{ticket.bookingCode}</span>
-        </p>
+        <p className="text-muted mt-1.5 text-[11px] leading-snug">{copy.note}</p>
       </div>
 
-      <dl className="space-y-1.5 border-t border-line px-4 py-3 text-sm">
+      <Perforation />
+
+      <dl className="px-4 py-2.5 text-sm">
         <Row label="Date" value={formatVisitDate(ticket.visitDate)} />
         <Row label="Visitors" value={`${ticket.visitorCount}`} strong />
         <Row label="Issued" value={formatDateTime(ticket.issuedAt)} />
         {ticket.customerName ? <Row label="Name" value={ticket.customerName} /> : null}
+        <div className="mt-1.5 flex items-baseline justify-between gap-4 border-t-2 border-double border-line pt-2">
+          <dt className="text-[11px] font-semibold uppercase tracking-[0.16em]">Amount paid</dt>
+          <dd className="text-lg font-bold tabular-nums">{formatPaise(ticket.amountTotal)}</dd>
+        </div>
       </dl>
 
-      <p className="flex items-center justify-between gap-4 bg-brand px-4 py-2.5 text-white print:border-y print:border-black print:bg-white print:text-black">
-        <span className="text-xs font-semibold uppercase tracking-[0.18em]">Total fare</span>
-        <span className="text-2xl font-bold tabular-nums">{formatPaise(ticket.amountTotal)}</span>
-      </p>
+      <Perforation />
 
-      <footer className="text-muted border-t border-line px-4 py-3 text-[10px] leading-relaxed">
-        <p className="font-semibold uppercase tracking-wide">Terms &amp; conditions</p>
-        <ul className="mt-1 space-y-0.5">
+      <footer className="px-4 pb-3 pt-2.5">
+        <p className="text-muted text-[9px] font-semibold uppercase tracking-[0.16em]">
+          Terms &amp; conditions
+        </p>
+        <ul className="text-muted mt-1 space-y-0.5 text-[9.5px] leading-snug">
           {TERMS.map((term) => (
             <li key={term} className="flex gap-1.5">
               <span aria-hidden>•</span>
@@ -121,7 +131,7 @@ export async function TicketView({ ticket }: { ticket: TicketViewData }) {
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-center text-xs font-semibold text-brand">
+        <p className="mt-2.5 text-center font-script text-xl leading-none text-brand">
           Thank You &amp; Visit Again!
         </p>
       </footer>
@@ -129,11 +139,18 @@ export async function TicketView({ ticket }: { ticket: TicketViewData }) {
   );
 }
 
+/** Dashed rule between the ticket's sections — reads as a tear-off line. */
+function Perforation() {
+  return <div className="border-t border-dashed border-line" aria-hidden />;
+}
+
 function Row({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
   return (
-    <div className="flex items-baseline justify-between gap-4">
-      <dt className="text-muted">{label}</dt>
-      <dd className={strong ? "text-lg font-bold" : "font-medium"}>{value}</dd>
+    <div className="ticket-row flex items-baseline justify-between gap-3 border-b border-dotted border-line py-1 last-of-type:border-0">
+      <dt className="text-muted shrink-0 text-[11px] uppercase tracking-[0.12em]">{label}</dt>
+      <dd className={`text-right ${strong ? "text-base font-bold" : "text-[13px] font-medium"}`}>
+        {value}
+      </dd>
     </div>
   );
 }

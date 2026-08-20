@@ -49,6 +49,7 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-bebas-neue);
+  --font-script: var(--font-dancing-script);
 }
 
 body {
@@ -93,11 +94,17 @@ body {
     color: #000 !important;
     border-color: #000 !important;
   }
+  /* Which is exactly why the row leaders come off: at 1-bit they print as a
+     hard black dotted line, far heavier than the faint guide they are on
+     screen. The rows read fine on their own. */
+  .ticket-row {
+    border-bottom: 0 !important;
+  }
   /* Sized in mm, not px: this is the one element whose physical size on the
      paper decides whether the gate scanner reads it first time. */
   .ticket-qr {
-    width: 42mm !important;
-    height: 42mm !important;
+    width: 40mm !important;
+    height: 40mm !important;
   }
   .ticket-animal {
     height: 11mm !important;
