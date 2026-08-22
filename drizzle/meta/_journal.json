@@ -15,6 +15,13 @@
       "when": 1786874119824,
       "tag": "0001_handy_barracuda",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787405209458,
+      "tag": "0002_wet_nico_minoru",
+      "breakpoints": true
     }
   ]
 }

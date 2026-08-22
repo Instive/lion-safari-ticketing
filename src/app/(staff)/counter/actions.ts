@@ -6,10 +6,11 @@ import { z } from "zod";
 
 import { businessDate } from "@/lib/time";
 import { createCounterBooking } from "@/domain/booking/create";
-import { MAX_VISITORS_PER_BOOKING } from "@/domain/booking/pricing";
+import { MAX_VISITORS_PER_BOOKING, type RateSelection } from "@/domain/booking/pricing";
 import { cancelBooking } from "@/domain/booking/refund";
 import { DomainError, ForbiddenError } from "@/domain/errors";
 import { requireStaff } from "@/lib/auth/guards";
+import { rupeeStringToPaise } from "@/lib/money";
 import { db } from "@/db";
 import { bookings, tickets } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -23,7 +24,33 @@ const schema = z.object({
   // length is capped; nothing about their shape is validated.
   customerName: z.string().trim().max(120).optional(),
   customerPhone: z.string().trim().max(20).optional(),
+
+  /**
+   * How the sale was priced. Note what is NOT here: an amount. A category is
+   * named by id and priced from its row; a one-off price is bounded and must be
+   * explained. `resolveRate` enforces both — this only shapes the request.
+   */
+  rateKind: z.enum(["STANDARD", "CATEGORY", "CUSTOM"]).default("STANDARD"),
+  rateCategoryId: z.uuid().optional(),
+  /** Whole rupees as typed at the counter; converted to paise before it moves. */
+  customRateRupees: z.coerce.number().min(0).max(1_000_000).optional(),
+  rateNote: z.string().trim().max(200).optional(),
 });
+
+/** Shapes the validated form into the rate the domain will price. */
+function rateFrom(parsed: z.infer<typeof schema>): RateSelection {
+  if (parsed.rateKind === "CATEGORY" && parsed.rateCategoryId) {
+    return { kind: "CATEGORY", categoryId: parsed.rateCategoryId };
+  }
+  if (parsed.rateKind === "CUSTOM") {
+    return {
+      kind: "CUSTOM",
+      perVisitorPaise: rupeeStringToPaise(parsed.customRateRupees ?? 0),
+      note: parsed.rateNote ?? "",
+    };
+  }
+  return { kind: "STANDARD" };
+}
 
 export type CashSaleState = { error?: string };
 
@@ -54,6 +81,10 @@ export async function createCashSaleAction(
     idempotencyKey: formData.get("idempotencyKey"),
     customerName: formData.get("customerName") ?? undefined,
     customerPhone: formData.get("customerPhone") ?? undefined,
+    rateKind: formData.get("rateKind") ?? undefined,
+    rateCategoryId: formData.get("rateCategoryId") || undefined,
+    customRateRupees: formData.get("customRateRupees") || undefined,
+    rateNote: formData.get("rateNote") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -74,6 +105,7 @@ export async function createCashSaleAction(
       customerPhone: parsed.data.customerPhone || null,
       idempotencyKey: parsed.data.idempotencyKey,
       createdByStaffId: staff.id,
+      rate: rateFrom(parsed.data),
       actor: { type: "STAFF", id: staff.id, name: staff.name },
     });
     bookingCode = result.booking.bookingCode;

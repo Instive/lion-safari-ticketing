@@ -123,6 +123,38 @@ export const devices = pgTable("devices", {
 });
 
 // ---------------------------------------------------------------------------
+// Rate categories
+// ---------------------------------------------------------------------------
+
+/**
+ * Named concession rates — "School group", "Senior citizen", "Guest of the
+ * park" — that the counter can sell at instead of the standard fare.
+ *
+ * The price lives here, in the database, precisely so the counter screen can
+ * send a category and never an amount: staff choose WHO the guest is, and the
+ * server decides what that costs (spec §4.3). Rates are deactivated rather than
+ * deleted, because bookings sold under them must keep pointing at what they
+ * were sold as.
+ */
+export const rateCategories = pgTable(
+  "rate_categories",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Shown on the counter button and printed on the ticket. */
+    name: text("name").notNull().unique(),
+    perVisitorPaise: integer("per_visitor_paise").notNull(),
+    active: boolean("active").notNull().default(true),
+    createdByStaffId: uuid("created_by_staff_id").references(() => staffUsers.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check("rate_categories_price_non_negative", sql`${t.perVisitorPaise} >= 0`),
+    index("rate_categories_active_idx").on(t.active),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Bookings
 // ---------------------------------------------------------------------------
 
@@ -139,6 +171,17 @@ export const bookings = pgTable(
     amountTotal: integer("amount_total").notNull(),
     convenienceFee: integer("convenience_fee").notNull().default(0),
     currency: text("currency").notNull().default("INR"),
+
+    /**
+     * What one visitor was charged on THIS booking. Recorded rather than
+     * derived, so editing a rate category later — or changing the standard fare
+     * — can never rewrite what a past sale cost.
+     */
+    perVisitorPaise: integer("per_visitor_paise").notNull(),
+    /** Null means the standard fare was charged. */
+    rateCategoryId: uuid("rate_category_id").references(() => rateCategories.id),
+    /** Why a one-off price was given. Required for a custom rate, kept for audit. */
+    rateNote: text("rate_note"),
 
     customerName: text("customer_name"),
     customerPhone: text("customer_phone"),
@@ -165,6 +208,7 @@ export const bookings = pgTable(
     index("bookings_phone_idx").on(t.customerPhone),
     index("bookings_created_at_idx").on(t.createdAt),
     index("bookings_status_idx").on(t.status),
+    index("bookings_rate_category_idx").on(t.rateCategoryId),
   ],
 );
 
@@ -356,6 +400,7 @@ export const rateLimits = pgTable("rate_limits", {
 export type StaffUser = typeof staffUsers.$inferSelect;
 export type Device = typeof devices.$inferSelect;
 export type Booking = typeof bookings.$inferSelect;
+export type RateCategory = typeof rateCategories.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type Ticket = typeof tickets.$inferSelect;
 export type BoardingEvent = typeof boardingEvents.$inferSelect;

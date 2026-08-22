@@ -17,9 +17,17 @@ function noopSubscribe(): () => void {
   return () => {};
 }
 
+export type CounterRate = {
+  id: string;
+  name: string;
+  perVisitorPaise: number;
+};
+
 type Props = {
   perVisitorPaise: number;
   maxVisitors: number;
+  /** Concession rates an admin has defined. Empty is fine — standard only. */
+  rates: CounterRate[];
   /**
    * Minted on the server when this screen was rendered. A double-tapped
    * "Cash received" sends the same key twice and yields one booking; starting
@@ -65,10 +73,13 @@ function ConfirmButton({
   total,
   visitors,
   ready,
+  countReady,
 }: {
   total: string;
   visitors: number;
   ready: boolean;
+  /** Distinguishes "no count yet" from "count fine, special price unfinished". */
+  countReady: boolean;
 }) {
   const { pending } = useFormStatus();
   // Set only from the timeout callback below (an async, external-event
@@ -97,7 +108,13 @@ function ConfirmButton({
         className="flex w-full items-center justify-between gap-4 rounded-xl bg-ok px-5 py-5 text-left text-white transition-colors hover:brightness-95 disabled:opacity-60"
       >
         <span className="text-lg font-bold">
-          {pending ? "Creating ticket…" : ready ? "Cash received" : "Enter the visitor count"}
+          {pending
+            ? "Creating ticket…"
+            : ready
+              ? "Cash received"
+              : countReady
+                ? "Finish the special price"
+                : "Enter the visitor count"}
         </span>
         {pending || !ready ? (
           <span
@@ -139,7 +156,7 @@ function ConfirmButton({
   );
 }
 
-export function CounterForm({ perVisitorPaise, maxVisitors, idempotencyKey }: Props) {
+export function CounterForm({ perVisitorPaise, maxVisitors, rates, idempotencyKey }: Props) {
   const [state, formAction] = useActionState<CashSaleState, FormData>(createCashSaleAction, {});
   /**
    * The count as typed, not as a number: it is the single source of truth for
@@ -148,6 +165,10 @@ export function CounterForm({ perVisitorPaise, maxVisitors, idempotencyKey }: Pr
    * form silently falling back to some other count.
    */
   const [countText, setCountText] = useState("1");
+  /** "STANDARD", a rate category id, or "CUSTOM". */
+  const [rateKey, setRateKey] = useState("STANDARD");
+  const [customRupees, setCustomRupees] = useState("");
+  const [rateNote, setRateNote] = useState("");
 
   // Server snapshot matches the SSR-rendered hidden input (no hydration
   // mismatch). Client snapshot prefers an unfinished-draft key already in
@@ -167,12 +188,28 @@ export function CounterForm({ perVisitorPaise, maxVisitors, idempotencyKey }: Pr
     }
   }, [idempotencyKey]);
 
+  const selectedRate = rates.find((rate) => rate.id === rateKey) ?? null;
+  const isCustom = rateKey === "CUSTOM";
+  const customPaise = Math.round(Number(customRupees) * 100);
+  const customValid =
+    Number.isInteger(customPaise) &&
+    customPaise >= 0 &&
+    customPaise <= perVisitorPaise &&
+    rateNote.trim().length >= 3;
+
+  // What one visitor costs under the current selection. The server re-derives
+  // this from the rate row rather than trusting it; this is display only.
+  const effectivePerVisitor = isCustom
+    ? customPaise
+    : (selectedRate?.perVisitorPaise ?? perVisitorPaise);
+
   const parsed = Number.parseInt(countText, 10);
-  const ready = Number.isInteger(parsed) && parsed >= 1 && parsed <= maxVisitors;
+  const countReady = Number.isInteger(parsed) && parsed >= 1 && parsed <= maxVisitors;
+  const ready = countReady && (!isCustom || customValid);
   // An unreadable box prices nothing and confirms nothing — the button below
   // stays disabled rather than guessing a count for money that's changing hands.
-  const visitors = ready ? parsed : 0;
-  const totalPaise = visitors * perVisitorPaise;
+  const visitors = countReady ? parsed : 0;
+  const totalPaise = visitors * effectivePerVisitor;
   const total = formatPaise(totalPaise);
 
   function pick(next: number) {
@@ -183,6 +220,15 @@ export function CounterForm({ perVisitorPaise, maxVisitors, idempotencyKey }: Pr
     <form action={formAction} className="space-y-5">
       <input type="hidden" name="visitorCount" value={visitors} />
       <input type="hidden" name="idempotencyKey" value={draftKey} />
+      {/* The form posts which rate, not what it costs. */}
+      <input
+        type="hidden"
+        name="rateKind"
+        value={isCustom ? "CUSTOM" : selectedRate ? "CATEGORY" : "STANDARD"}
+      />
+      {selectedRate ? (
+        <input type="hidden" name="rateCategoryId" value={selectedRate.id} />
+      ) : null}
 
       <section className="rounded-xl border border-line bg-surface p-4">
         <div className="mb-3 flex items-baseline justify-between">
@@ -253,13 +299,98 @@ export function CounterForm({ perVisitorPaise, maxVisitors, idempotencyKey }: Pr
         </div>
       </section>
 
+      {rates.length > 0 || true ? (
+        <section className="rounded-xl border border-line bg-surface p-4">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-sm font-semibold">Price</h2>
+            {effectivePerVisitor !== perVisitorPaise ? (
+              <span className="rounded bg-accent/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-accent">
+                Special rate
+              </span>
+            ) : null}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <RateChip
+              selected={rateKey === "STANDARD"}
+              onClick={() => setRateKey("STANDARD")}
+              title="Standard"
+              price={formatPaise(perVisitorPaise)}
+            />
+            {rates.map((rate) => (
+              <RateChip
+                key={rate.id}
+                selected={rateKey === rate.id}
+                onClick={() => setRateKey(rate.id)}
+                title={rate.name}
+                price={formatPaise(rate.perVisitorPaise)}
+              />
+            ))}
+            <RateChip
+              selected={isCustom}
+              onClick={() => setRateKey("CUSTOM")}
+              title="Other price"
+              price="Enter"
+            />
+          </div>
+
+          {isCustom ? (
+            <div className="mt-3 space-y-2 rounded-lg bg-background p-3">
+              <label htmlFor="custom-rate" className="text-muted block text-xs font-medium">
+                Price per visitor (₹) — cannot be more than the standard{" "}
+                {formatPaise(perVisitorPaise)}
+              </label>
+              <input
+                id="custom-rate"
+                name="customRateRupees"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                max={perVisitorPaise / 100}
+                step="1"
+                value={customRupees}
+                onChange={(event) => setCustomRupees(event.target.value)}
+                placeholder="50"
+                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-xl font-bold tabular-nums outline-none focus:border-brand"
+              />
+              <label htmlFor="rate-note" className="text-muted block text-xs font-medium">
+                Who is this for? Kept against the sale.
+              </label>
+              <input
+                id="rate-note"
+                name="rateNote"
+                value={rateNote}
+                onChange={(event) => setRateNote(event.target.value)}
+                placeholder="e.g. Govt. school group, letter shown"
+                maxLength={200}
+                className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+              />
+              {!customValid && (customRupees !== "" || rateNote !== "") ? (
+                <p className="text-xs text-accent">
+                  {customPaise > perVisitorPaise
+                    ? `A special price cannot be more than ${formatPaise(perVisitorPaise)}.`
+                    : "Enter a price and say who it is for."}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       <section className="rounded-xl border border-line bg-surface p-4">
         <div className="flex items-baseline justify-between">
           <span className="text-muted text-sm tabular-nums">
-            {ready ? `${visitors} × ${formatPaise(perVisitorPaise)}` : `${formatPaise(perVisitorPaise)} per visitor`}
+            {countReady
+              ? `${visitors} × ${formatPaise(effectivePerVisitor)}`
+              : `${formatPaise(effectivePerVisitor)} per visitor`}
           </span>
-          <span className="text-3xl font-bold tabular-nums">{ready ? total : "—"}</span>
+          <span className="text-3xl font-bold tabular-nums">{countReady ? total : "—"}</span>
         </div>
+        {effectivePerVisitor !== perVisitorPaise && countReady ? (
+          <p className="text-muted mt-1 text-right text-xs">
+            {formatPaise(visitors * (perVisitorPaise - effectivePerVisitor))} less than standard
+          </p>
+        ) : null}
       </section>
 
       <details className="rounded-xl border border-line bg-surface p-4">
@@ -295,11 +426,44 @@ export function CounterForm({ perVisitorPaise, maxVisitors, idempotencyKey }: Pr
       {/* Pinned to the bottom of the screen: the confirm action stays reachable
           however far the page has been scrolled, on a short counter display. */}
       <div className="sticky bottom-0 z-10 -mx-4 border-t border-line bg-background/95 px-4 pb-4 pt-3 backdrop-blur">
-        <ConfirmButton total={total} visitors={visitors} ready={ready} />
+        <ConfirmButton
+          total={total}
+          visitors={visitors}
+          ready={ready}
+          countReady={countReady}
+        />
         <p className="text-muted mt-2 text-center text-xs">
           Collect the cash before confirming. The ticket prints on the next screen.
         </p>
       </div>
     </form>
+  );
+}
+
+function RateChip({
+  selected,
+  onClick,
+  title,
+  price,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  title: string;
+  price: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={`rounded-xl border px-3 py-2 text-left transition-colors ${
+        selected ? "border-brand bg-brand text-white" : "border-line bg-background hover:border-brand"
+      }`}
+    >
+      <span className="block text-sm font-semibold">{title}</span>
+      <span className={`block text-xs tabular-nums ${selected ? "text-white/80" : "text-muted"}`}>
+        {price}
+      </span>
+    </button>
   );
 }

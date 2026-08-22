@@ -6,7 +6,7 @@ import { generateBookingCode } from "@/lib/codes";
 import { businessDate } from "@/lib/time";
 import { writeAudit, writeChange, type Actor } from "../audit";
 import { issueTicketFor } from "../ticket/issue";
-import { quoteFor } from "./pricing";
+import { quoteFor, resolveRate, type RateSelection } from "./pricing";
 
 export type CreateBookingInput = {
   channel: "ONLINE" | "COUNTER";
@@ -23,6 +23,12 @@ export type CreateBookingInput = {
   idempotencyKey: string;
   createdByStaffId?: string | null;
   deviceId?: string | null;
+  /**
+   * Which fare to charge. Omitted means the standard one. Whatever this says,
+   * the price itself is resolved server-side inside the transaction below —
+   * a caller can name a rate, never an amount.
+   */
+  rate?: RateSelection;
   actor: Actor;
 };
 
@@ -55,11 +61,15 @@ export async function createCounterBooking(
 }
 
 async function createBooking(input: CreateBookingInput): Promise<CreateBookingResult> {
-  const quote = quoteFor(input.visitorCount, input.channel);
   const visitDate = input.visitDate ?? businessDate();
   const confirmedAtCreation = input.channel === "COUNTER";
 
   return db.transaction(async (tx) => {
+    // Priced inside the transaction so a category read and the row that records
+    // its price cannot straddle an edit to that category.
+    const rate = await resolveRate(input.rate, input.channel, tx);
+    const quote = quoteFor(input.visitorCount, input.channel, rate);
+
     const existing = await findByIdempotencyKey(tx, input.idempotencyKey);
     if (existing) {
       // A retry of a request we already served. Return the original booking and
@@ -77,6 +87,9 @@ async function createBooking(input: CreateBookingInput): Promise<CreateBookingRe
       amountTotal: quote.amountTotalPaise,
       convenienceFee: quote.convenienceFeePaise,
       currency: quote.currency,
+      perVisitorPaise: quote.perVisitorPaise,
+      rateCategoryId: rate.categoryId,
+      rateNote: rate.note,
       customerName: input.customerName ?? null,
       customerPhone: input.customerPhone ?? null,
       customerEmail: input.customerEmail ?? null,
@@ -108,6 +121,12 @@ async function createBooking(input: CreateBookingInput): Promise<CreateBookingRe
         visitorCount: booking.visitorCount,
         amountTotal: booking.amountTotal,
         visitDate: booking.visitDate,
+        // A sale below the standard fare is the thing an audit is FOR: who
+        // authorised it, at what price, and on what grounds.
+        rate: rate.label,
+        perVisitorPaise: booking.perVisitorPaise,
+        concessional: rate.concessional,
+        rateNote: rate.note,
       },
     });
 

@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq, sum } from "drizzle-orm";
+import { and, asc, count, desc, eq, sum } from "drizzle-orm";
 import Link from "next/link";
 
 import { db } from "@/db";
-import { bookings } from "@/db/schema";
+import { bookings, rateCategories } from "@/db/schema";
 import { requirePageStaff } from "@/lib/auth/guards";
 import { MAX_VISITORS_PER_BOOKING } from "@/domain/booking/pricing";
 import { env } from "@/lib/env";
@@ -24,7 +24,7 @@ export default async function CounterPage() {
     eq(bookings.visitDate, today),
   );
 
-  const [totals, recentSales] = await Promise.all([
+  const [totals, recentSales, rates] = await Promise.all([
     // What this staff member should be able to hand over at the end of the
     // shift. Only CASH_CONFIRMED counts: a voided sale is CANCELLED and its
     // money went back out of the drawer, so counting it would overstate.
@@ -52,6 +52,19 @@ export default async function CounterPage() {
       .where(mySalesToday)
       .orderBy(desc(bookings.createdAt))
       .limit(5),
+
+    // Concession rates the counter may sell at. Only the name and price cross
+    // to the browser; the price that is actually charged is re-read server-side
+    // from this same table when the sale is made.
+    db
+      .select({
+        id: rateCategories.id,
+        name: rateCategories.name,
+        perVisitorPaise: rateCategories.perVisitorPaise,
+      })
+      .from(rateCategories)
+      .where(eq(rateCategories.active, true))
+      .orderBy(asc(rateCategories.perVisitorPaise)),
   ]);
 
   // drizzle returns SUM() as a string (or null when there are no rows).
@@ -91,6 +104,7 @@ export default async function CounterPage() {
       <CounterForm
         perVisitorPaise={env.TICKET_PRICE_PAISE}
         maxVisitors={MAX_VISITORS_PER_BOOKING}
+        rates={rates}
         idempotencyKey={randomUUID()}
       />
 
