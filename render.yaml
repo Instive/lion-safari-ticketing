@@ -95,6 +95,10 @@ services:
         sync: false
       - key: SUPPORT_PHONE
         sync: false
+      # Recipients of the nightly bookings CSV (comma-separated). The worker
+      # sends it; the web service reads it only to show who it goes to.
+      - key: REPORT_EMAIL_TO
+        sync: false
 
   - type: worker
     name: lion-safari-worker
@@ -148,4 +152,8 @@ services:
       - key: MAIL_FROM
         sync: false
       - key: SUPPORT_PHONE
+        sync: false
+      # Recipients of the nightly bookings CSV (comma-separated). The worker
+      # sends it; the web service reads it only to show who it goes to.
+      - key: REPORT_EMAIL_TO
         sync: false

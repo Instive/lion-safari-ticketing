@@ -5,6 +5,7 @@ import { env } from "@/lib/env";
 export const QUEUES = {
   deliverTicket: "deliver-ticket",
   reconcilePayments: "reconcile-payments",
+  dailyReport: "daily-report",
 } as const;
 
 export type DeliverTicketJob = { bookingId: string };
@@ -43,6 +44,15 @@ export async function getBoss(): Promise<PgBoss> {
         retryDelay: 60,
         deleteAfterSeconds: 60 * 60 * 24 * 7,
       }),
+      // A missed evening report is worth retrying for a while — a mail provider
+      // outage should not cost the day's record.
+      boss.createQueue(QUEUES.dailyReport, {
+        retryLimit: 6,
+        retryDelay: 300,
+        retryBackoff: true,
+        retryDelayMax: 3600,
+        deleteAfterSeconds: 60 * 60 * 24 * 7,
+      }),
     ]);
     globalForBoss.__boss = boss;
     return boss;
@@ -63,4 +73,24 @@ export async function enqueueTicketDelivery(bookingId: string): Promise<void> {
     singletonKey: bookingId,
     singletonSeconds: 60,
   });
+}
+
+/**
+ * Queues the bookings report for one business date. Safe to call repeatedly:
+ * the date is the singleton key, so the nightly schedule and an admin pressing
+ * "email it again" within the window collapse into one send.
+ */
+export async function enqueueDailyReport(
+  businessDate: string,
+  options: { singletonSeconds?: number } = {},
+): Promise<void> {
+  const boss = await getBoss();
+  await boss.send(
+    QUEUES.dailyReport,
+    { businessDate },
+    {
+      singletonKey: businessDate,
+      singletonSeconds: options.singletonSeconds ?? 300,
+    },
+  );
 }

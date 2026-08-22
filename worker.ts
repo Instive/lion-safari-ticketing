@@ -6,10 +6,12 @@
  * a slow email or an unresponsive payment API can never delay a web request.
  */
 import { pool } from "@/db";
+import { sendDailyReport, type DailyReportJob } from "@/jobs/handlers/daily-report";
 import { deliverTicket } from "@/jobs/handlers/deliver-ticket";
 import { reconcilePayments } from "@/jobs/handlers/reconcile-payments";
 import { getBoss, QUEUES, type DeliverTicketJob } from "@/jobs/queue";
 import { purgeExpiredSessions } from "@/lib/auth/session";
+import { env } from "@/lib/env";
 
 async function main() {
   const boss = await getBoss();
@@ -30,9 +32,20 @@ async function main() {
     if (purged > 0) console.info(`[worker] purged ${purged} expired session(s)`);
   });
 
+  await boss.work<DailyReportJob>(QUEUES.dailyReport, { batchSize: 1 }, async (jobs) => {
+    for (const job of jobs) {
+      await sendDailyReport(job.data);
+    }
+  });
+
   // Sweep every two minutes so a customer with a lost webhook waits minutes,
   // not until someone notices.
   await boss.schedule(QUEUES.reconcilePayments, "*/2 * * * *");
+
+  // 8pm in the park's timezone — after the 5pm close, so the day is complete,
+  // and while someone is still around to notice if it doesn't arrive. pg-boss
+  // schedules in UTC unless told otherwise, which would land this mid-afternoon.
+  await boss.schedule(QUEUES.dailyReport, "0 20 * * *", {}, { tz: env.APP_TIMEZONE });
 
   console.info("[worker] listening on:", Object.values(QUEUES).join(", "));
 }

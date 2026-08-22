@@ -41,6 +41,13 @@ const schema = z.object({
   RESEND_API_KEY: z.string().default(""),
   MAIL_FROM: z.string().default("Lion Safari <tickets@example.com>"),
   SUPPORT_PHONE: z.string().default(""),
+
+  /**
+   * Who receives the nightly bookings CSV — comma-separated. Leave unset and
+   * the report simply doesn't send, the same way mail is a no-op without an API
+   * key: an unconfigured deployment must never fail a job it cannot deliver.
+   */
+  REPORT_EMAIL_TO: z.string().default(""),
 });
 
 export type Env = z.infer<typeof schema>;
