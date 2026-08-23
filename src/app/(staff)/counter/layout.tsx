@@ -14,6 +14,14 @@ export const metadata: Metadata = {
 export default function CounterLayout({ children }: LayoutProps<"/counter">) {
   return (
     <>
+      {/*
+        The ticket artwork is fetched now, while there is a connection, because
+        the moment it is actually needed is the moment there is not: a ticket
+        printed during an outage. The service worker precaches it too — this
+        covers the window before a worker has installed.
+      */}
+      <link rel="preload" as="image" href="/ticket-lion.png" />
+      <link rel="preload" as="image" href="/ticket-deer.png" />
       <ServiceWorkerRegistration />
       {children}
     </>

@@ -55,6 +55,23 @@ export type Env = z.infer<typeof schema>;
 let cached: Env | null = null;
 
 function load(): Env {
+  /*
+   * A Client Component that imports this — usually indirectly, through a
+   * helper that reaches for APP_TIMEZONE — pulls the server's environment
+   * validation into the browser, where `process.env` is empty and this throws
+   * on the first render, taking the React tree with it. The zod failure that
+   * results names DATABASE_URL and SESSION_SECRET, which sends you looking for
+   * a config problem that does not exist. Say what actually happened instead.
+   */
+  if (typeof window !== "undefined") {
+    throw new Error(
+      "@/lib/env was imported by client code. Server configuration must never " +
+        "reach the browser — check the import chain of the component that just " +
+        "rendered (`@/lib/time` is the usual route in) and pass the value as a " +
+        "prop, or use a client-safe helper such as @/lib/format-date.",
+    );
+  }
+
   const parsed = schema.safeParse(process.env);
 
   if (!parsed.success) {

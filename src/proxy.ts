@@ -36,11 +36,23 @@ const STAFF_PREFIXES = [
 
 /**
  * Infrastructure paths that must answer on EVERY hostname, whatever the split
- * says. Render health-checks the service through its own custom domain — for
- * this app that is the staff domain — so gating /api/health by host makes the
+ * says.
+ *
+ * `/api/health`: Render health-checks the service through its own custom domain
+ * — for this app that is the staff domain — so gating it by host makes the
  * health check 404 and the deploy hangs forever waiting for a 200.
+ *
+ * `/sw.js` and `/manifest.webmanifest`: the offline service worker and the
+ * install manifest are static files in `public/`, so they look like ordinary
+ * paths to the rules below and would be rewritten to `/__wrong-host` on the
+ * staff domain. `navigator.serviceWorker.register()` then fails on the 404's
+ * `text/html`, and the counter and scanner silently lose the ability to survive
+ * a reload during an outage — the tab already open keeps working, so nothing
+ * looks broken until the one moment it matters. The static assets they cache
+ * (`.png`, `.svg`, `/_next/static`) are already exempt via `config.matcher`;
+ * these two are the ones the pattern misses.
  */
-const NEUTRAL_PREFIXES = ["/api/health"];
+const NEUTRAL_PREFIXES = ["/api/health", "/sw.js", "/manifest.webmanifest"];
 
 /**
  * Read from `process.env` rather than `@/lib/env` on purpose — the proxy runs in

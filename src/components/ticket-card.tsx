@@ -1,22 +1,23 @@
 import Image from "next/image";
 
 import { formatPaise } from "@/lib/money";
-import { formatDateTime, formatVisitDate } from "@/lib/time";
 import type { TicketStatus } from "@/db/schema";
 
 export type TicketCardData = {
   bookingCode: string;
   status: TicketStatus;
   visitorCount: number;
-  visitDate: string;
   amountTotal: number;
   /**
-   * When the ticket was issued. For an online sale this is the server clock;
-   * for one sold during an outage it is the counter device's, which is the only
-   * clock there was — recorded as audit data, never used to judge validity
-   * (spec §6).
+   * Dates arrive already formatted, and deliberately so: turning them into text
+   * needs the park's timezone, which lives in `@/lib/env` and must never be
+   * imported by a Client Component — doing so drags the server's environment
+   * validation into the browser, where it throws on the first render. The
+   * server formats in park time; the offline counter formats on the device
+   * clock, which is the only clock it has.
    */
-  issuedAt: Date;
+  visitDateLabel: string;
+  issuedLabel: string;
   customerName?: string | null;
 };
 
@@ -63,11 +64,18 @@ export function TicketCard({
   return (
     <article className="ticket mx-auto w-full max-w-sm overflow-hidden rounded-2xl border border-line bg-surface print:rounded-none">
       <header className="flex items-center justify-center gap-3 px-3 pb-2.5 pt-3">
+        {/*
+          `unoptimized`, and pointing at a pre-sized file, on purpose. The
+          optimizer serves images from /_next/image, which needs the network —
+          so an optimized image is a broken image on a ticket sold during an
+          outage. These are plain URLs the service worker precaches instead.
+        */}
         <Image
-          src="/lion-transparent-opt.png"
+          src="/ticket-lion.png"
           alt=""
           width={44}
           height={54}
+          unoptimized
           className="ticket-animal h-11 w-auto shrink-0"
         />
         <div className="min-w-0 text-center leading-tight">
@@ -75,10 +83,11 @@ export function TicketCard({
           <p className="text-muted text-[9px] uppercase tracking-[0.3em]">Wildlife Safari</p>
         </div>
         <Image
-          src="/deer-transparent-opt.png"
+          src="/ticket-deer.png"
           alt=""
           width={46}
           height={54}
+          unoptimized
           className="ticket-animal h-11 w-auto shrink-0"
         />
       </header>
@@ -116,9 +125,9 @@ export function TicketCard({
       <Perforation />
 
       <dl className="px-4 py-2.5 text-sm">
-        <Row label="Date" value={formatVisitDate(ticket.visitDate)} />
+        <Row label="Date" value={ticket.visitDateLabel} />
         <Row label="Visitors" value={`${ticket.visitorCount}`} strong />
-        <Row label="Issued" value={formatDateTime(ticket.issuedAt)} />
+        <Row label="Issued" value={ticket.issuedLabel} />
         {ticket.customerName ? <Row label="Name" value={ticket.customerName} /> : null}
         <div className="mt-1.5 flex items-baseline justify-between gap-4 border-t-2 border-double border-line pt-2">
           <dt className="text-[11px] font-semibold uppercase tracking-[0.16em]">Amount paid</dt>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { TicketCard } from "@/components/ticket-card";
+import { formatCalendarDate, formatDeviceDateTime } from "@/lib/format-date";
 import { renderQrDataUrl } from "@/lib/qr";
 
 export type OfflineTicketData = {
@@ -61,9 +62,9 @@ export function OfflineTicket({
               bookingCode: ticket.bookingCode,
               status: "ACTIVE",
               visitorCount: ticket.visitorCount,
-              visitDate: ticket.visitDate,
               amountTotal: ticket.amountTotal,
-              issuedAt: ticket.issuedAt,
+              visitDateLabel: formatCalendarDate(ticket.visitDate),
+              issuedLabel: formatDeviceDateTime(ticket.issuedAt),
               customerName: ticket.customerName,
             }}
             qrDataUrl={qr}
