@@ -50,6 +50,7 @@ export const STATUS_FILTERS = [
   "CANCELLED",
   "REFUND_PENDING",
   "REFUNDED",
+  "RESERVED",
 ] as const;
 export type StatusFilter = (typeof STATUS_FILTERS)[number];
 
@@ -63,6 +64,7 @@ export const STATUS_LABELS: Record<StatusFilter, string> = {
   CANCELLED: "Cancelled",
   REFUND_PENDING: "Refund pending",
   REFUNDED: "Refunded",
+  RESERVED: "Unsold blanks (ticket books)",
 };
 
 export type ChannelFilter = "ALL" | "ONLINE" | "COUNTER";

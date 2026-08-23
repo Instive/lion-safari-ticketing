@@ -37,6 +37,14 @@ export const bookingStatus = pgEnum("booking_status", [
   "CANCELLED",
   "REFUND_PENDING",
   "REFUNDED",
+  /**
+   * Pre-issued and sitting in a counter device's ticket book, not yet sold.
+   *
+   * The ticket behind it is deliberately ACTIVE so the gate can admit it during
+   * an internet outage, which is the whole point of the book — see
+   * `src/domain/booking/reserve.ts` for what bounds that.
+   */
+  "RESERVED",
 ]);
 
 export const ticketStatus = pgEnum("ticket_status", [
@@ -193,6 +201,21 @@ export const bookings = pgTable(
     deviceId: uuid("device_id").references(() => devices.id),
 
     /**
+     * Set while this booking is a blank in a counter device's ticket book. The
+     * book is bound to one device so deactivating that device in admin can void
+     * everything it still holds unsold.
+     */
+    reservedDeviceId: uuid("reserved_device_id").references(() => devices.id),
+    /** Groups one allocation together, so a book can be reported on as a unit. */
+    reservedBatchId: uuid("reserved_batch_id"),
+    /**
+     * When staff took the cash, per the counter device's own clock. Audit only —
+     * server time remains authoritative (spec §6) — but it is the only record of
+     * when a sale actually happened during an outage.
+     */
+    soldOfflineAt: timestamp("sold_offline_at", { withTimezone: true }),
+
+    /**
      * Guards against double submission: a retried create with the same key
      * returns the original booking instead of creating a second one.
      */
@@ -209,6 +232,8 @@ export const bookings = pgTable(
     index("bookings_created_at_idx").on(t.createdAt),
     index("bookings_status_idx").on(t.status),
     index("bookings_rate_category_idx").on(t.rateCategoryId),
+    // The counter asks "what is still unsold in my book?" on every top-up.
+    index("bookings_reserved_device_idx").on(t.reservedDeviceId, t.visitDate),
   ],
 );
 

@@ -16,15 +16,23 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 
 /**
- * Paths that belong to staff operations. `/api/scanner` is included because the
- * scanner page fetches it with relative URLs and the app sets no CORS headers,
- * so page and API must be served from the same origin.
+ * Paths that belong to staff operations. `/api/scanner` and `/api/counter` are
+ * included because those pages fetch them with relative URLs and the app sets no
+ * CORS headers, so page and API must be served from the same origin.
  *
  * `/api/payments/webhook/cashfree` is deliberately absent: Cashfree posts to the
  * public host. `/api/health` is not listed here either — it is host-agnostic
  * infrastructure, see NEUTRAL_PREFIXES below.
  */
-const STAFF_PREFIXES = ["/login", "/staff", "/counter", "/admin", "/scanner", "/api/scanner"];
+const STAFF_PREFIXES = [
+  "/login",
+  "/staff",
+  "/counter",
+  "/admin",
+  "/scanner",
+  "/api/scanner",
+  "/api/counter",
+];
 
 /**
  * Infrastructure paths that must answer on EVERY hostname, whatever the split

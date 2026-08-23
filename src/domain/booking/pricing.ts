@@ -15,9 +15,6 @@ import { DomainError } from "../errors";
  */
 export const MAX_VISITORS_PER_BOOKING = 10_000;
 
-/** A one-off price must be explained, and the explanation is kept forever. */
-export const MIN_RATE_NOTE_LENGTH = 3;
-
 export const STANDARD_RATE_LABEL = "Standard";
 
 /**
@@ -28,7 +25,8 @@ export const STANDARD_RATE_LABEL = "Standard";
 export type RateSelection =
   | { kind: "STANDARD" }
   | { kind: "CATEGORY"; categoryId: string }
-  | { kind: "CUSTOM"; perVisitorPaise: number; note: string };
+  /** `note` is optional — staff may record who the price is for, but need not. */
+  | { kind: "CUSTOM"; perVisitorPaise: number; note?: string };
 
 export type ResolvedRate = {
   perVisitorPaise: number;
@@ -107,18 +105,17 @@ export async function resolveRate(
       `A special price cannot be more than the standard ${formatPaise(env.TICKET_PRICE_PAISE)} fare.`,
     );
   }
-  if (note.trim().length < MIN_RATE_NOTE_LENGTH) {
-    throw new DomainError(
-      "RATE_NOTE_REQUIRED",
-      "Say who this price is for — it is recorded against the sale.",
-    );
-  }
+  // The note is optional. When staff do write one it is kept against the sale
+  // forever, which is what makes a discount explainable months later — but a
+  // queue at the counter is a poor place to insist on paperwork, and the price
+  // cap plus the audit entry are what actually bound the risk.
+  const trimmedNote = (note ?? "").trim().slice(0, 200);
 
   return {
     perVisitorPaise,
     categoryId: null,
     label: "Special price",
-    note: note.trim().slice(0, 200),
+    note: trimmedNote || null,
     concessional: perVisitorPaise !== env.TICKET_PRICE_PAISE,
   };
 }

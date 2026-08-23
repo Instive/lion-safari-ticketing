@@ -6,6 +6,7 @@
  * a slow email or an unresponsive payment API can never delay a web request.
  */
 import { pool } from "@/db";
+import { expireStaleBlanks } from "@/domain/booking/reserve";
 import { sendDailyReport, type DailyReportJob } from "@/jobs/handlers/daily-report";
 import { deliverTicket } from "@/jobs/handlers/deliver-ticket";
 import { reconcilePayments } from "@/jobs/handlers/reconcile-payments";
@@ -30,6 +31,13 @@ async function main() {
     }
     const purged = await purgeExpiredSessions();
     if (purged > 0) console.info(`[worker] purged ${purged} expired session(s)`);
+
+    // Unsold blanks in a counter's ticket book are admissible at the gate until
+    // they expire, so letting them survive a day rollover would leave valid
+    // entry passes accumulating indefinitely. This is what bounds a book's
+    // exposure to a single day (see domain/booking/reserve.ts).
+    const expired = await expireStaleBlanks({ type: "SYSTEM", id: "worker" });
+    if (expired > 0) console.info(`[worker] expired ${expired} unsold ticket blank(s)`);
   });
 
   await boss.work<DailyReportJob>(QUEUES.dailyReport, { batchSize: 1 }, async (jobs) => {

@@ -18,6 +18,11 @@ const ALLOWED: Record<BookingStatus, BookingStatus[]> = {
   REFUNDED: [],
   FAILED: [],
   CANCELLED: [],
+  // A blank in a counter's ticket book is either sold — which is a staff cash
+  // confirmation, the same authority as any other counter sale — or it expires
+  // unsold at day rollover. It can never become PAID: nothing about a ticket
+  // book involves the payment gateway.
+  RESERVED: ["CASH_CONFIRMED", "CANCELLED"],
 };
 
 export function canTransition(from: BookingStatus, to: BookingStatus): boolean {

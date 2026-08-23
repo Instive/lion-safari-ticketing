@@ -8,6 +8,9 @@ const tone: Record<BookingStatus, string> = {
   FAILED: "bg-danger/10 text-danger",
   CANCELLED: "bg-danger/10 text-danger",
   REFUNDED: "bg-danger/10 text-danger",
+  // Neutral: an unsold blank in a counter's ticket book is not a sale, and
+  // should not read as money taken.
+  RESERVED: "bg-muted/10 text-muted",
 };
 
 const label: Record<BookingStatus, string> = {
@@ -18,6 +21,7 @@ const label: Record<BookingStatus, string> = {
   FAILED: "Payment failed",
   CANCELLED: "Cancelled",
   REFUNDED: "Refunded",
+  RESERVED: "Unsold blank",
 };
 
 export function StatusPill({

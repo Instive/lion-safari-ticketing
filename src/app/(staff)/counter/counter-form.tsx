@@ -191,11 +191,14 @@ export function CounterForm({ perVisitorPaise, maxVisitors, rates, idempotencyKe
   const selectedRate = rates.find((rate) => rate.id === rateKey) ?? null;
   const isCustom = rateKey === "CUSTOM";
   const customPaise = Math.round(Number(customRupees) * 100);
+  // The note is optional: only the price decides whether this sale can go
+  // through. `customRupees` is checked as a non-empty string so a blank field
+  // is not read as a free ticket.
   const customValid =
+    customRupees.trim() !== "" &&
     Number.isInteger(customPaise) &&
     customPaise >= 0 &&
-    customPaise <= perVisitorPaise &&
-    rateNote.trim().length >= 3;
+    customPaise <= perVisitorPaise;
 
   // What one visitor costs under the current selection. The server re-derives
   // this from the rate row rather than trusting it; this is display only.
@@ -354,7 +357,7 @@ export function CounterForm({ perVisitorPaise, maxVisitors, rates, idempotencyKe
                 className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-xl font-bold tabular-nums outline-none focus:border-brand"
               />
               <label htmlFor="rate-note" className="text-muted block text-xs font-medium">
-                Who is this for? Kept against the sale.
+                Who is this for? <span className="font-normal">(optional — kept against the sale)</span>
               </label>
               <input
                 id="rate-note"
@@ -365,11 +368,11 @@ export function CounterForm({ perVisitorPaise, maxVisitors, rates, idempotencyKe
                 maxLength={200}
                 className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
               />
-              {!customValid && (customRupees !== "" || rateNote !== "") ? (
+              {!customValid && customRupees !== "" ? (
                 <p className="text-xs text-accent">
                   {customPaise > perVisitorPaise
                     ? `A special price cannot be more than ${formatPaise(perVisitorPaise)}.`
-                    : "Enter a price and say who it is for."}
+                    : "Enter a price of zero or more."}
                 </p>
               ) : null}
             </div>

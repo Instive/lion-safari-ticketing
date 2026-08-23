@@ -165,6 +165,12 @@ function whereFor(filters: BookingFilters): SQL {
         ? eq(bookings.status, statuses[0]!)
         : inArray(bookings.status, statuses),
     );
+  } else {
+    // "All statuses" means all *sales*. An unsold blank in a counter's ticket
+    // book is stock, not a booking anyone made, and letting hundreds of them
+    // into the table and the CSV would bury the real ones. Asking for RESERVED
+    // explicitly still shows them.
+    clauses.push(sql`${bookings.status} <> 'RESERVED'`);
   }
 
   if (filters.q) {
