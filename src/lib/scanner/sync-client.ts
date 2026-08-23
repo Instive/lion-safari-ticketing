@@ -43,23 +43,16 @@ export function clearDeviceKey(): void {
   keyListeners.forEach((l) => l());
 }
 
-/** Connectivity, also as a store so render stays pure. */
-export function subscribeOnline(onChange: () => void): () => void {
-  window.addEventListener("online", onChange);
-  window.addEventListener("offline", onChange);
-  return () => {
-    window.removeEventListener("online", onChange);
-    window.removeEventListener("offline", onChange);
-  };
-}
-
-export function getOnlineSnapshot(): boolean {
-  return navigator.onLine;
-}
-
-export function getOnlineServerSnapshot(): boolean {
-  return true;
-}
+/**
+ * Connectivity, also as a store so render stays pure. Lives in `@/lib/online-store`
+ * because the counter needs exactly the same thing; re-exported here so the
+ * scanner's imports read from one place.
+ */
+export {
+  getOnlineServerSnapshot,
+  getOnlineSnapshot,
+  subscribeOnline,
+} from "@/lib/online-store";
 
 export type SyncState = {
   lastSyncAt: string | null;

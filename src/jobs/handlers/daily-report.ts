@@ -9,6 +9,7 @@ import {
   streamBookings,
   type BookingFilters,
 } from "@/domain/reports/bookings";
+import { offlineSalesFor } from "@/domain/reports/ticket-books";
 
 export type DailyReportJob = { businessDate?: string };
 
@@ -21,12 +22,16 @@ const COLUMNS = [
   "Booked at (IST)",
   "Visitors",
   "Boarded",
+  "Rate",
+  "Per visitor (INR)",
   "Amount (INR)",
   "Convenience fee (INR)",
+  "Sold offline",
   "Guest name",
   "Phone",
   "Email",
   "Sold by",
+  "Rate note",
 ];
 
 function recipients(): string[] {
@@ -69,6 +74,7 @@ export async function sendDailyReport(job: DailyReportJob = {}): Promise<{
   };
 
   const totals = await bookingTotals(filters);
+  const offline = await offlineSalesFor(from, to);
 
   let csv = CSV_BOM + csvRow(COLUMNS);
   let rows = 0;
@@ -84,12 +90,16 @@ export async function sendDailyReport(job: DailyReportJob = {}): Promise<{
         formatDateTime(row.createdAt),
         row.visitorCount,
         row.boardedCount,
+        row.rateName ?? "Standard",
+        Number(paiseToRupeeString(row.perVisitorPaise)),
         Number(paiseToRupeeString(row.amountTotal)),
         Number(paiseToRupeeString(row.convenienceFee)),
+        row.soldOfflineAt ? formatDateTime(row.soldOfflineAt) : "",
         row.customerName ?? "",
         row.customerPhone ?? "",
         row.customerEmail ?? "",
         row.soldBy ?? "",
+        row.rateNote ?? "",
       ]);
     }
   }
@@ -101,7 +111,7 @@ export async function sendDailyReport(job: DailyReportJob = {}): Promise<{
   }
 
   const label = formatVisitDate(date);
-  const html = reportHtml({ label, totals, rows });
+  const html = reportHtml({ label, totals, rows, offline });
   const attachment = {
     filename: `lion-safari-bookings-${date}.csv`,
     content: Buffer.from(csv, "utf8").toString("base64"),
@@ -137,8 +147,9 @@ function reportHtml(input: {
   label: string;
   totals: Awaited<ReturnType<typeof bookingTotals>>;
   rows: number;
+  offline: Awaited<ReturnType<typeof offlineSalesFor>>;
 }): string {
-  const { label, totals, rows } = input;
+  const { label, totals, rows, offline } = input;
   const cell = "padding:6px 0;color:#5c6b63";
   const value = "text-align:right;font-weight:600";
 
@@ -156,6 +167,7 @@ function reportHtml(input: {
       <tr><td style="${cell}">Collected</td><td style="${value}">${formatPaise(totals.collectedPaise)}</td></tr>
       ${totals.refundedPaise > 0 ? `<tr><td style="${cell}">Refunded</td><td style="${value}">${formatPaise(totals.refundedPaise)}</td></tr>` : ""}
       ${totals.pending > 0 ? `<tr><td style="${cell}">Still awaiting payment</td><td style="${value}">${totals.pending}</td></tr>` : ""}
+      ${offline.count > 0 ? `<tr><td style="${cell}">Sold offline (ticket book)</td><td style="${value}">${offline.count} &middot; ${formatPaise(offline.collectedPaise)}</td></tr>` : ""}
     </table>
 
     <p style="margin:20px 0 0;font-size:13px;color:#5c6b63;line-height:1.6">

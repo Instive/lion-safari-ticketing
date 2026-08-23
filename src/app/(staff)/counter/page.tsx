@@ -105,6 +105,7 @@ export default async function CounterPage() {
         perVisitorPaise={env.TICKET_PRICE_PAISE}
         maxVisitors={MAX_VISITORS_PER_BOOKING}
         rates={rates}
+        staffId={staff.id}
         idempotencyKey={randomUUID()}
       />
 

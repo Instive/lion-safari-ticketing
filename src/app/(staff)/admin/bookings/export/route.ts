@@ -17,12 +17,16 @@ const COLUMNS = [
   "Booked at (IST)",
   "Visitors",
   "Boarded",
+  "Rate",
+  "Per visitor (INR)",
   "Amount (INR)",
   "Convenience fee (INR)",
+  "Sold offline",
   "Guest name",
   "Phone",
   "Email",
   "Sold by",
+  "Rate note",
 ];
 
 /**
@@ -66,14 +70,18 @@ export async function GET(req: Request): Promise<Response> {
               formatDateTime(row.createdAt),
               row.visitorCount,
               row.boardedCount,
+              row.rateName ?? "Standard",
+              Number(paiseToRupeeString(row.perVisitorPaise)),
               // Plain decimals, not "₹75.00" — the point of a spreadsheet is
               // that the amount column adds up.
               Number(paiseToRupeeString(row.amountTotal)),
               Number(paiseToRupeeString(row.convenienceFee)),
+              row.soldOfflineAt ? formatDateTime(row.soldOfflineAt) : "",
               row.customerName ?? "",
               row.customerPhone ?? "",
               row.customerEmail ?? "",
               row.soldBy ?? "",
+              row.rateNote ?? "",
             ]);
           }
           controller.enqueue(encoder.encode(chunk));

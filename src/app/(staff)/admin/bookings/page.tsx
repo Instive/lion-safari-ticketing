@@ -159,7 +159,18 @@ export default async function AdminBookingsPage({ searchParams }: PageProps<"/ad
                     <p className="text-muted text-xs">
                       {r.channel.toLowerCase()}
                       {r.soldBy ? ` · ${r.soldBy}` : ""}
+                      {r.soldOfflineAt ? " · offline" : ""}
                     </p>
+                    {/* Anything not at the standard fare is worth seeing at a
+                        glance — this list is the discount oversight. */}
+                    {r.rateName || r.rateNote ? (
+                      <p className="text-accent text-xs font-medium">
+                        {r.rateName ?? "Special price"}
+                        {r.rateNote ? (
+                          <span className="text-muted font-normal"> · {r.rateNote}</span>
+                        ) : null}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-4 py-3">
                     {r.customerName ?? <span className="text-muted">—</span>}

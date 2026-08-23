@@ -22,6 +22,11 @@ import {
   loadBook,
 } from "@/domain/booking/reserve";
 import { buildSync } from "@/domain/scanner/sync";
+import {
+  bookDiscrepancies,
+  bookStock,
+  offlineSalesFor,
+} from "@/domain/reports/ticket-books";
 import { DomainError } from "@/domain/errors";
 import { generateApiKey, sha256 } from "@/lib/codes";
 import { env } from "@/lib/env";
@@ -229,6 +234,101 @@ async function main() {
   check(
     "and their tickets are no longer admissible",
     leftoverTickets.every((t) => t.status !== "ACTIVE"),
+  );
+
+  // -----------------------------------------------------------------------
+  console.log("\n9. Oversight reports what the trade-off requires");
+  const stock = await bookStock(today);
+  const mine = stock.find((row) => row.deviceId === device!.id && row.visitDate === today);
+  check("stock is reported for this till", Boolean(mine), `${stock.length} row(s)`);
+  check(
+    "sold and unsold are counted separately",
+    mine !== undefined && mine.sold >= 1 && mine.unsold >= 1,
+    mine ? `${mine.unsold} unsold, ${mine.sold} sold` : "",
+  );
+
+  const offline = await offlineSalesFor(today, today);
+  check(
+    "the offline sale is reported as offline trade",
+    offline.count >= 1 && offline.collectedPaise >= 5 * env.TICKET_PRICE_PAISE,
+    `${offline.count} sale(s), ${offline.collectedPaise} paise`,
+  );
+
+  // A blank boarded but never sold is the fraud/loss signal the whole design
+  // leans on, so it is worth proving the query actually finds one.
+  const orphan = book.find((b) => b.visitorCount === 2 && b.bookingId !== stealTarget.bookingId)!;
+  const [orphanTicket] = await db
+    .select()
+    .from(tickets)
+    .where(eq(tickets.bookingId, orphan.bookingId))
+    .limit(1);
+  await confirmBoarding({
+    token: orphanTicket!.token,
+    boardedCount: 2,
+    clientEventId: randomUUID(),
+    actor: SYSTEM,
+  });
+
+  const discrepancies = await bookDiscrepancies(today, today);
+  check(
+    "a blank boarded with no sale is flagged",
+    discrepancies.some((d) => d.bookingId === orphan.bookingId),
+    `${discrepancies.length} discrepancy(ies)`,
+  );
+  check(
+    "a blank that WAS sold is not flagged",
+    !discrepancies.some((d) => d.bookingId === sold.bookingId),
+  );
+
+  // -----------------------------------------------------------------------
+  console.log("\n10. Special prices stay bounded (counter concessions)");
+  const cheap = book.find(
+    (b) =>
+      b.visitorCount === 2 &&
+      b.bookingId !== stealTarget.bookingId &&
+      b.bookingId !== orphan.bookingId,
+  )!;
+  const discounted = await activateReservedBooking({
+    bookingId: cheap.bookingId,
+    deviceId: device!.id,
+    rate: { kind: "CUSTOM", perVisitorPaise: 5000 },
+    actor: SYSTEM,
+  });
+  check(
+    "a special price is applied from the server's own quote",
+    discounted.booking.amountTotal === 2 * 5000,
+    `${discounted.booking.amountTotal}`,
+  );
+  check("and recorded per visitor", discounted.booking.perVisitorPaise === 5000);
+
+  // Any blank this run has not already consumed. Picked by exclusion rather
+  // than by size so this check can never quietly skip itself.
+  const spent = [sold.bookingId, stealTarget.bookingId, orphan.bookingId, cheap.bookingId];
+  const another = book.find((b) => !spent.includes(b.bookingId));
+  check("a spare blank is available for the overcharge check", Boolean(another));
+
+  let overcharged = false;
+  if (another) {
+    try {
+      await activateReservedBooking({
+        bookingId: another.bookingId,
+        deviceId: device!.id,
+        rate: { kind: "CUSTOM", perVisitorPaise: env.TICKET_PRICE_PAISE + 1 },
+        actor: SYSTEM,
+      });
+    } catch (err) {
+      overcharged = err instanceof DomainError && err.code === "RATE_ABOVE_STANDARD";
+    }
+  }
+  check("a price above the standard fare is refused", overcharged);
+
+  const [untouched] = another
+    ? await db.select().from(bookings).where(eq(bookings.id, another.bookingId)).limit(1)
+    : [];
+  check(
+    "and the refused blank is still unsold",
+    untouched?.status === "RESERVED",
+    untouched?.status,
   );
 
   console.log(

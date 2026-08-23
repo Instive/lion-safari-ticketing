@@ -6,6 +6,7 @@ import { db } from "@/db";
 import {
   boardingEvents,
   bookings,
+  rateCategories,
   staffUsers,
   tickets,
   type BookingStatus,
@@ -29,13 +30,11 @@ export * from "./filter-options";
 
 /**
  * The queries behind the admin bookings view, the CSV download and the nightly
- * report — one definition of "which bookings are we talking about", so a number
- * on screen and a number in a spreadsheet can never disagree. If the export could build
- * its own filter, a number on screen and a number in a spreadsheet would
- * eventually disagree — and the spreadsheet is what gets forwarded.
+ * report — one definition of "which bookings are we talking about". If the
+ * export could build its own filter, a number on screen and a number in a
+ * spreadsheet would eventually disagree, and the spreadsheet is what gets
+ * forwarded.
  */
-
-
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -204,6 +203,12 @@ export type BookingRow = {
   customerEmail: string | null;
   soldBy: string | null;
   boardedCount: number;
+  perVisitorPaise: number;
+  /** The concession this was sold under, or null for the standard fare. */
+  rateName: string | null;
+  rateNote: string | null;
+  /** Set when the sale was made from a ticket book during an outage. */
+  soldOfflineAt: Date | null;
 };
 
 function selection() {
@@ -222,6 +227,10 @@ function selection() {
     customerPhone: bookings.customerPhone,
     customerEmail: bookings.customerEmail,
     soldBy: staffUsers.username,
+    perVisitorPaise: bookings.perVisitorPaise,
+    rateName: rateCategories.name,
+    rateNote: bookings.rateNote,
+    soldOfflineAt: bookings.soldOfflineAt,
     boardedCount: sql<number>`coalesce((
       select sum(${boardingEvents.boardedCount})
       from ${boardingEvents}
@@ -235,7 +244,9 @@ function baseQuery() {
     .select(selection())
     .from(bookings)
     .leftJoin(tickets, eq(tickets.bookingId, bookings.id))
-    .leftJoin(staffUsers, eq(staffUsers.id, bookings.createdByStaffId));
+    .leftJoin(staffUsers, eq(staffUsers.id, bookings.createdByStaffId))
+    // Left join: most bookings are at the standard fare and have no category.
+    .leftJoin(rateCategories, eq(rateCategories.id, bookings.rateCategoryId));
 }
 
 /** One page of the table, newest first. */

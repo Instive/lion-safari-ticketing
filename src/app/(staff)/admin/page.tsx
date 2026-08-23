@@ -13,6 +13,7 @@ export const dynamic = "force-dynamic";
 const SECTIONS = [
   { href: "/admin/bookings", label: "Bookings" },
   { href: "/admin/rates", label: "Rates" },
+  { href: "/admin/books", label: "Ticket books" },
   { href: "/admin/reconciliation", label: "Reconciliation" },
   { href: "/admin/devices", label: "Devices" },
   { href: "/admin/staff", label: "Staff" },

@@ -1,10 +1,14 @@
 "use client";
 
-import { useActionState, useEffect, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useFormStatus } from "react-dom";
 
 import { formatPaise } from "@/lib/money";
 import { createCashSaleAction, type CashSaleState } from "./actions";
+import { OfflineStatus } from "./offline-status";
+import { OfflineTicket, type OfflineTicketData } from "./offline-ticket";
+import { useOfflineCounter } from "./use-offline-counter";
 
 const DRAFT_KEY_STORAGE = "ls_counter_draft_key";
 
@@ -28,6 +32,8 @@ type Props = {
   maxVisitors: number;
   /** Concession rates an admin has defined. Empty is fine — standard only. */
   rates: CounterRate[];
+  /** Recorded against a sale made offline, so a shift still has an owner. */
+  staffId: string;
   /**
    * Minted on the server when this screen was rendered. A double-tapped
    * "Cash received" sends the same key twice and yields one booking; starting
@@ -156,8 +162,23 @@ function ConfirmButton({
   );
 }
 
-export function CounterForm({ perVisitorPaise, maxVisitors, rates, idempotencyKey }: Props) {
+export function CounterForm({
+  perVisitorPaise,
+  maxVisitors,
+  rates,
+  staffId,
+  idempotencyKey,
+}: Props) {
   const [state, formAction] = useActionState<CashSaleState, FormData>(createCashSaleAction, {});
+  const counter = useOfflineCounter();
+  /** The ticket just sold from the local book, held until staff moves on. */
+  const [offlineTicket, setOfflineTicket] = useState<OfflineTicketData | null>(null);
+  const [offlineError, setOfflineError] = useState<string | null>(null);
+  /** Read once at sale time for the optional guest fields, which stay uncontrolled. */
+  const formRef = useRef<HTMLFormElement>(null);
+  /** Tracks an offline spell, so reconnecting can refresh a possibly-stale page. */
+  const wasOfflineRef = useRef(false);
+  const router = useRouter();
   /**
    * The count as typed, not as a number: it is the single source of truth for
    * the quick-pick buttons, the stepper and the box staff can type into, and
@@ -187,6 +208,27 @@ export function CounterForm({ perVisitorPaise, maxVisitors, rates, idempotencyKe
       sessionStorage.setItem(DRAFT_KEY_STORAGE, idempotencyKey);
     }
   }, [idempotencyKey]);
+
+  /*
+   * Once the link returns, pull a fresh page.
+   *
+   * While offline the service worker may have served this screen from cache, so
+   * everything the server rendered into it is from some earlier moment: the
+   * shift totals, the rate buttons, and — the one that could actually cost
+   * money — the idempotency key, which on a cached page may be one that has
+   * already been spent. Refreshing before the next online sale replaces all
+   * three. Never mid-sale: an open ticket is not interrupted.
+   */
+  useEffect(() => {
+    if (!counter.online) {
+      wasOfflineRef.current = true;
+      return;
+    }
+    if (wasOfflineRef.current && !offlineTicket) {
+      wasOfflineRef.current = false;
+      router.refresh();
+    }
+  }, [counter.online, offlineTicket, router]);
 
   const selectedRate = rates.find((rate) => rate.id === rateKey) ?? null;
   const isCustom = rateKey === "CUSTOM";
@@ -219,8 +261,60 @@ export function CounterForm({ perVisitorPaise, maxVisitors, rates, idempotencyKe
     setCountText(String(clamp(next, maxVisitors)));
   }
 
+  /**
+   * The offline path. Takes a pre-issued ticket of the right size out of the
+   * local book, queues the sale, and shows the ticket to print.
+   *
+   * The amount printed here is computed locally, and the server recomputes it
+   * from the same rate and count when the sale reconciles — they agree unless
+   * an admin re-prices a category in between, in which case the server's figure
+   * is the one that counts. Reconciliation is authoritative; paper is a receipt.
+   */
+  async function sellOffline() {
+    setOfflineError(null);
+    if (!ready) return;
+
+    const data = formRef.current ? new FormData(formRef.current) : null;
+    const text = (field: string) => {
+      const value = data?.get(field);
+      return typeof value === "string" && value.trim() ? value.trim() : null;
+    };
+
+    const sold = await counter.sell({
+      visitorCount: visitors,
+      perVisitorPaise: effectivePerVisitor,
+      amountTotal: totalPaise,
+      rateCategoryId: selectedRate?.id ?? null,
+      customRatePaise: isCustom ? customPaise : null,
+      rateNote: isCustom ? (rateNote.trim() || null) : null,
+      customerName: text("customerName"),
+      customerPhone: text("customerPhone"),
+      staffId,
+    });
+
+    if (!sold) {
+      setOfflineError(
+        `No pre-issued ticket left for ${visitors} visitor${visitors === 1 ? "" : "s"}. ` +
+          "Split the group across two tickets, or wait for the connection.",
+      );
+      return;
+    }
+
+    setOfflineTicket({
+      bookingCode: sold.blank.bookingCode,
+      token: sold.blank.token,
+      visitorCount: sold.blank.visitorCount,
+      visitDate: sold.blank.visitDate,
+      amountTotal: totalPaise,
+      issuedAt: sold.issuedAt,
+      customerName: text("customerName"),
+    });
+  }
+
   return (
-    <form action={formAction} className="space-y-5">
+    <form ref={formRef} action={formAction} className="space-y-5">
+      <OfflineStatus counter={counter} />
+
       <input type="hidden" name="visitorCount" value={visitors} />
       <input type="hidden" name="idempotencyKey" value={draftKey} />
       {/* The form posts which rate, not what it costs. */}
@@ -426,20 +520,107 @@ export function CounterForm({ perVisitorPaise, maxVisitors, rates, idempotencyKe
         </p>
       ) : null}
 
+      {offlineError ? (
+        <p role="alert" className="rounded-lg bg-danger/5 px-3 py-2 text-sm text-danger">
+          {offlineError}
+        </p>
+      ) : null}
+
       {/* Pinned to the bottom of the screen: the confirm action stays reachable
           however far the page has been scrolled, on a short counter display. */}
       <div className="sticky bottom-0 z-10 -mx-4 border-t border-line bg-background/95 px-4 pb-4 pt-3 backdrop-blur">
-        <ConfirmButton
-          total={total}
-          visitors={visitors}
-          ready={ready}
-          countReady={countReady}
-        />
+        {counter.online ? (
+          <ConfirmButton
+            total={total}
+            visitors={visitors}
+            ready={ready}
+            countReady={countReady}
+          />
+        ) : (
+          /*
+           * Offline, this is a plain button rather than a submit: the server
+           * action behind the form cannot run, and letting the form submit would
+           * hang the sale instead of issuing a ticket from the book.
+           */
+          <OfflineConfirmButton
+            total={total}
+            visitors={visitors}
+            ready={ready && counter.enrolled && counter.ready}
+            reason={
+              !counter.enrolled
+                ? "Offline selling is not set up on this till"
+                : !counter.ready
+                  ? "Ticket book not loaded yet"
+                  : !countReady
+                    ? "Enter the visitor count"
+                    : "Finish the special price"
+            }
+            onSell={() => void sellOffline()}
+          />
+        )}
         <p className="text-muted mt-2 text-center text-xs">
           Collect the cash before confirming. The ticket prints on the next screen.
         </p>
       </div>
+
+      {offlineTicket ? (
+        <OfflineTicket
+          ticket={offlineTicket}
+          onDone={() => {
+            setOfflineTicket(null);
+            setCountText("1");
+            setRateKey("STANDARD");
+            setCustomRupees("");
+            setRateNote("");
+            formRef.current?.reset();
+          }}
+        />
+      ) : null}
     </form>
+  );
+}
+
+/** The offline twin of ConfirmButton — no form submission, no pending state. */
+function OfflineConfirmButton({
+  total,
+  visitors,
+  ready,
+  reason,
+  onSell,
+}: {
+  total: string;
+  visitors: number;
+  ready: boolean;
+  reason: string;
+  onSell: () => void;
+}) {
+  const [working, setWorking] = useState(false);
+
+  return (
+    <button
+      type="button"
+      disabled={!ready || working}
+      onClick={() => {
+        setWorking(true);
+        onSell();
+        // Re-enabled once the overlay is dismissed and this remounts; the guard
+        // exists only to swallow a double-tap on a slow tablet.
+        setTimeout(() => setWorking(false), 1200);
+      }}
+      className="flex w-full items-center justify-between gap-4 rounded-xl bg-accent px-5 py-5 text-left text-white transition-colors hover:brightness-95 disabled:opacity-60"
+    >
+      <span className="text-lg font-bold">
+        {ready ? "Cash received — offline" : reason}
+      </span>
+      {ready ? (
+        <span className="text-right leading-tight">
+          <span className="block text-xl font-bold tabular-nums">{total}</span>
+          <span className="block text-xs font-medium text-white/80">
+            {visitors} visitor{visitors === 1 ? "" : "s"}
+          </span>
+        </span>
+      ) : null}
+    </button>
   );
 }
 

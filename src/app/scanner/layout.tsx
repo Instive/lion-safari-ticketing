@@ -1,4 +1,10 @@
-import type { Viewport } from "next";
+import type { Metadata, Viewport } from "next";
+
+import { ServiceWorkerRegistration } from "@/components/staff/service-worker";
+
+export const metadata: Metadata = {
+  manifest: "/manifest.webmanifest",
+};
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -10,5 +16,10 @@ export const viewport: Viewport = {
 };
 
 export default function ScannerLayout({ children }: LayoutProps<"/scanner">) {
-  return <div className="min-h-dvh bg-neutral-950">{children}</div>;
+  return (
+    <div className="min-h-dvh bg-neutral-950">
+      <ServiceWorkerRegistration />
+      {children}
+    </div>
+  );
 }
