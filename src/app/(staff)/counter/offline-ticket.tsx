@@ -57,13 +57,13 @@ export function OfflineTicket({
       the thermal roll today. The layout changes are all inside it.
     */
     <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
-      <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col px-4 py-4 print:block print:min-h-0">
-        {/* Status beside the ticket on a wide counter display, above it on a
-            narrow one — the same arrangement as the online ticket screen, since
-            staff should not have to read two different layouts for what is, to
-            them, one job. */}
-        <div className="flex flex-1 flex-col gap-5 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start lg:gap-8">
-          <div className="no-print rounded-xl border border-accent/40 bg-accent/5 px-4 py-3">
+      <div className="mx-auto w-full max-w-5xl px-4 py-4">
+        {/* Same three-column arrangement as the online ticket screen, empty
+            third column included: it is what keeps the ticket centred instead
+            of pushed right by the panel beside it. Staff should not have to
+            read two different screens for what is, to them, one job. */}
+        <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:items-start lg:gap-6">
+          <div className="no-print rounded-xl border border-accent/40 bg-accent/5 px-4 py-3 lg:col-start-1 lg:max-w-72 lg:justify-self-end">
             <p className="font-semibold text-accent">Ticket ready — sold offline</p>
             <p className="text-muted text-sm">
               Hand this to the guest. It scans at the gate now; the sale reaches the office by
@@ -71,7 +71,7 @@ export function OfflineTicket({
             </p>
           </div>
 
-          <div className="mx-auto w-full max-w-md">
+          <div className="mx-auto w-full max-w-md lg:col-start-2">
             {qr ? (
               <TicketCard
                 ticket={{
@@ -92,26 +92,24 @@ export function OfflineTicket({
             ) : (
               <p className="text-muted py-16 text-center">Preparing ticket…</p>
             )}
-          </div>
-        </div>
 
-        <div className="no-print sticky bottom-0 z-10 -mx-4 mt-6 border-t border-line bg-background/95 px-4 pb-4 pt-3 backdrop-blur">
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => window.print()}
-              disabled={!qr}
-              className="min-h-14 rounded-xl border border-line bg-surface px-4 font-semibold hover:bg-background disabled:opacity-60"
-            >
-              Print
-            </button>
-            <button
-              type="button"
-              onClick={onDone}
-              className="min-h-14 rounded-xl bg-brand px-4 font-semibold text-white hover:bg-brand-strong"
-            >
-              Next sale
-            </button>
+            <div className="no-print mt-5 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                disabled={!qr}
+                className="min-h-14 rounded-xl border border-line bg-surface px-4 font-semibold hover:bg-background disabled:opacity-60"
+              >
+                Print
+              </button>
+              <button
+                type="button"
+                onClick={onDone}
+                className="min-h-14 rounded-xl bg-brand px-4 font-semibold text-white hover:bg-brand-strong"
+              >
+                Next sale
+              </button>
+            </div>
           </div>
         </div>
       </div>

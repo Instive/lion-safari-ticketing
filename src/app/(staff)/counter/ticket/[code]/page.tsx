@@ -73,53 +73,49 @@ export default async function CounterTicketPage({
           };
 
   return (
-    /*
-      `print:block print:min-h-0` matters more than it looks: the full-height
-      flex column below is what keeps the actions pinned to the bottom of the
-      screen, and left in place at print time it would pad an 80mm thermal roll
-      out to a viewport's worth of blank paper on every single ticket.
-    */
-    <main className="mx-auto flex min-h-dvh w-full max-w-4xl flex-col px-4 py-6 print:block print:min-h-0">
+    <main className="mx-auto w-full max-w-5xl px-4 py-6">
       <ClearDraftSaleKey />
 
       {/*
-        Wide screens put the status beside the ticket rather than above it. A
-        ticket is a tall, narrow thing; stacked, it pushed the status off the
-        top of a counter display the moment staff scrolled to check the QR.
+        Three columns, with the third left empty on purpose: it is what keeps
+        the ticket centred on the screen rather than shunted right by the panel
+        beside it. A ticket is the thing being handed over, so it stays where
+        the eye already expects it, and the status and correction move into the
+        space that was previously blank.
 
-        Auto-placement does the reordering on its own: at `lg` the three
-        children fall into (status, ticket, cancel) with the ticket spanning
-        both rows, and below `lg` the same DOM order stacks as status → ticket
-        → cancel — which is also the order that keeps a destructive action
-        below the thing it destroys.
+        Placement is explicit rather than left to auto-flow, which would put the
+        cancel button in that empty third column — on the right, opposite the
+        status it belongs with. Below `lg` the grid collapses and DOM order
+        takes over: status → ticket → actions → cancel, which keeps a
+        destructive button below the thing it destroys.
       */}
-      <div className="flex flex-1 flex-col gap-5 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start lg:gap-8">
-        <div className={`no-print rounded-xl border px-4 py-3 ${banner.tone}`}>
+      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:items-start lg:gap-6">
+        <div
+          className={`no-print rounded-xl border px-4 py-3 lg:col-start-1 lg:row-start-1 lg:max-w-72 lg:justify-self-end ${banner.tone}`}
+        >
           <p className="font-semibold">{banner.title}</p>
           <p className="text-muted text-sm">{banner.note}</p>
         </div>
 
-        <div className="mx-auto w-full max-w-md lg:row-span-2">
+        <div className="mx-auto w-full max-w-md lg:col-start-2 lg:row-span-2 lg:row-start-1">
           <TicketView ticket={row} />
+
+          <div className="no-print mt-5 grid grid-cols-2 gap-3">
+            <PrintButton />
+            <Link
+              href="/counter"
+              className="grid min-h-14 place-items-center rounded-xl bg-brand px-4 font-semibold text-white hover:bg-brand-strong"
+            >
+              Next sale
+            </Link>
+          </div>
         </div>
 
-        <div className="no-print">
-          {canVoid ? <VoidSaleForm bookingCode={row.bookingCode} /> : null}
-        </div>
-      </div>
-
-      {/* Pinned like the tender buttons on the sale screen: whatever staff have
-          scrolled to, the way onward is under their thumb. */}
-      <div className="no-print sticky bottom-0 z-10 -mx-4 mt-6 border-t border-line bg-background/95 px-4 pb-4 pt-3 backdrop-blur">
-        <div className="mx-auto grid max-w-4xl grid-cols-2 gap-3">
-          <PrintButton />
-          <Link
-            href="/counter"
-            className="grid min-h-14 place-items-center rounded-xl bg-brand px-4 font-semibold text-white hover:bg-brand-strong"
-          >
-            Next sale
-          </Link>
-        </div>
+        {canVoid ? (
+          <div className="no-print lg:col-start-1 lg:row-start-2 lg:max-w-72 lg:justify-self-end">
+            <VoidSaleForm bookingCode={row.bookingCode} />
+          </div>
+        ) : null}
       </div>
     </main>
   );
