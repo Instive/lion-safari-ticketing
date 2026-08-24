@@ -35,6 +35,13 @@ const schema = z.object({
   /** Whole rupees as typed at the counter; converted to paise before it moves. */
   customRateRupees: z.coerce.number().min(0).max(1_000_000).optional(),
   rateNote: z.string().trim().max(200).optional(),
+
+  /**
+   * Which button was pressed. Submit buttons post their own name/value, so this
+   * arrives from the button itself rather than from hidden state that could
+   * drift out of step with what staff actually tapped.
+   */
+  tender: z.enum(["CASH", "UPI"]).default("CASH"),
 });
 
 /** Shapes the validated form into the rate the domain will price. */
@@ -55,9 +62,9 @@ function rateFrom(parsed: z.infer<typeof schema>): RateSelection {
 export type CashSaleState = { error?: string };
 
 /**
- * Counter cash sale. The booking is created already CASH_CONFIRMED and its
- * ticket is issued in the same transaction — the staff member is holding the
- * money, so there is no in-between state to recover from.
+ * Counter sale, cash or UPI. The booking is created already CASH_CONFIRMED and
+ * its ticket is issued in the same transaction — the staff member has the money,
+ * so there is no in-between state to recover from.
  */
 export async function createCashSaleAction(
   _prev: CashSaleState,
@@ -85,6 +92,7 @@ export async function createCashSaleAction(
     rateCategoryId: formData.get("rateCategoryId") || undefined,
     customRateRupees: formData.get("customRateRupees") || undefined,
     rateNote: formData.get("rateNote") ?? undefined,
+    tender: formData.get("tender") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -106,6 +114,7 @@ export async function createCashSaleAction(
       idempotencyKey: parsed.data.idempotencyKey,
       createdByStaffId: staff.id,
       rate: rateFrom(parsed.data),
+      tender: parsed.data.tender,
       actor: { type: "STAFF", id: staff.id, name: staff.name },
     });
     bookingCode = result.booking.bookingCode;
@@ -131,6 +140,12 @@ export type VoidSaleState = { error?: string; voided?: boolean };
  * own creator, only the same business day, and only before the ticket has
  * been used at the gate. Wide enough to fix a typo on the spot, narrow enough
  * that it can't be used to quietly make an already-boarded sale disappear.
+ *
+ * There is no typed reason. Asking for one at a counter with a queue behind it
+ * bought very little — a hurried "wrong" tells nobody anything — and cost a
+ * confirmation step at the exact moment staff need this to be quick. Who
+ * cancelled, which sale, and when are all still recorded, and those are the
+ * facts an audit is actually reconstructed from.
  */
 export async function voidOwnSaleAction(
   _prev: VoidSaleState,
@@ -138,11 +153,6 @@ export async function voidOwnSaleAction(
 ): Promise<VoidSaleState> {
   const staff = await requireStaff(["COUNTER"]);
   const bookingCode = String(formData.get("bookingCode") ?? "").toUpperCase();
-  const reason = String(formData.get("reason") ?? "").trim();
-
-  if (reason.length < 3) {
-    return { error: "Please say what went wrong — it's recorded with the void." };
-  }
 
   const [row] = await db
     .select({
@@ -177,7 +187,7 @@ export async function voidOwnSaleAction(
     await cancelBooking(
       row.bookingId,
       { type: "STAFF", id: staff.id, name: staff.name },
-      `Voided at counter: ${reason}`,
+      "Cancelled at the counter by the staff member who made the sale",
     );
   } catch (err) {
     if (err instanceof DomainError) return { error: err.userMessage };

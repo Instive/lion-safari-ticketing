@@ -31,6 +31,11 @@ export function formatLocalTime(at: Date): string {
   return format(new TZDate(at, env.APP_TIMEZONE), "d MMM, h:mm a");
 }
 
+/** Clock time alone in the park's timezone, e.g. "4:54 PM". */
+export function formatClockTime(at: Date): string {
+  return format(new TZDate(at, env.APP_TIMEZONE), "h:mm a");
+}
+
 /**
  * Full date and clock time in the park's timezone, e.g. "20 Aug 2026, 2:45 PM".
  * Used on the ticket itself, where the year matters because a printed ticket

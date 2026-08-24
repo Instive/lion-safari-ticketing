@@ -11,6 +11,7 @@ export const runtime = "nodejs";
 const COLUMNS = [
   "Booking code",
   "Channel",
+  "Paid by",
   "Booking status",
   "Ticket status",
   "Visit date",
@@ -64,6 +65,7 @@ export async function GET(req: Request): Promise<Response> {
             chunk += csvRow([
               row.bookingCode,
               row.channel,
+              row.counterTender ?? "",
               row.status,
               row.ticketStatus ?? "",
               row.visitDate,

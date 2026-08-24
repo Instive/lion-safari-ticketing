@@ -18,6 +18,17 @@ export type TicketCardData = {
    */
   visitDateLabel: string;
   issuedLabel: string;
+  /**
+   * The time alone, set only when the ticket was issued on the day it is valid
+   * for — which at the counter is every ticket.
+   *
+   * Then there is one date on the paper instead of two saying the same thing,
+   * with the time appended to it, because the time is what staff and guests
+   * actually read off a same-day ticket. An advance online booking leaves this
+   * null and keeps both rows: there the visit date and the purchase date are
+   * genuinely different facts and collapsing them would lose one.
+   */
+  issuedTimeLabel?: string | null;
   customerName?: string | null;
 };
 
@@ -113,8 +124,12 @@ export function TicketCard({
           />
         </div>
 
-        <p className="text-muted mt-2 text-[9px] uppercase tracking-[0.22em]">Ticket no.</p>
-        <p className="font-mono text-sm font-semibold tracking-[0.2em]">{ticket.bookingCode}</p>
+        <p className="text-muted mt-2.5 text-[9px] uppercase tracking-[0.2em]">
+          Ticket no.{" "}
+          <span className="text-foreground font-mono text-[11px] font-semibold tracking-[0.12em]">
+            {ticket.bookingCode}
+          </span>
+        </p>
 
         <p className={`no-print mt-2.5 text-sm font-bold ${usable ? "text-ok" : "text-danger"}`}>
           {copy.label}
@@ -125,9 +140,16 @@ export function TicketCard({
       <Perforation />
 
       <dl className="px-4 py-2.5 text-sm">
-        <Row label="Date" value={ticket.visitDateLabel} />
+        <Row
+          label="Date"
+          value={
+            ticket.issuedTimeLabel
+              ? `${ticket.visitDateLabel} · ${ticket.issuedTimeLabel}`
+              : ticket.visitDateLabel
+          }
+        />
         <Row label="Visitors" value={`${ticket.visitorCount}`} strong />
-        <Row label="Issued" value={ticket.issuedLabel} />
+        {ticket.issuedTimeLabel ? null : <Row label="Issued" value={ticket.issuedLabel} />}
         {ticket.customerName ? <Row label="Name" value={ticket.customerName} /> : null}
         <div className="mt-1.5 flex items-baseline justify-between gap-4 border-t-2 border-double border-line pt-2">
           <dt className="text-[11px] font-semibold uppercase tracking-[0.16em]">Amount paid</dt>

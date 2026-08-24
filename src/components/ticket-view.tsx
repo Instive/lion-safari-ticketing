@@ -1,5 +1,5 @@
 import { renderQrDataUrl } from "@/lib/qr";
-import { formatDateTime, formatVisitDate } from "@/lib/time";
+import { businessDate, formatClockTime, formatDateTime, formatVisitDate } from "@/lib/time";
 import type { TicketStatus } from "@/db/schema";
 import { TicketCard } from "./ticket-card";
 
@@ -30,6 +30,9 @@ export type TicketViewData = {
  */
 export async function TicketView({ ticket }: { ticket: TicketViewData }) {
   const qr = await renderQrDataUrl(ticket.token);
+  // Both dates are compared in park time, so a ticket sold at 11pm IST is still
+  // "today" rather than tomorrow's UTC date.
+  const issuedOnVisitDay = businessDate(ticket.issuedAt) === ticket.visitDate;
 
   return (
     <TicketCard
@@ -40,6 +43,7 @@ export async function TicketView({ ticket }: { ticket: TicketViewData }) {
         amountTotal: ticket.amountTotal,
         visitDateLabel: formatVisitDate(ticket.visitDate),
         issuedLabel: formatDateTime(ticket.issuedAt),
+        issuedTimeLabel: issuedOnVisitDay ? formatClockTime(ticket.issuedAt) : null,
         customerName: ticket.customerName,
       }}
       qrDataUrl={qr}

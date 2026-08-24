@@ -158,6 +158,7 @@ export default async function AdminBookingsPage({ searchParams }: PageProps<"/ad
                     </Link>
                     <p className="text-muted text-xs">
                       {r.channel.toLowerCase()}
+                      {r.counterTender ? ` · ${r.counterTender.toLowerCase()}` : ""}
                       {r.soldBy ? ` · ${r.soldBy}` : ""}
                       {r.soldOfflineAt ? " · offline" : ""}
                     </p>

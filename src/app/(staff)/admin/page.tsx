@@ -32,6 +32,12 @@ export default async function AdminDashboard() {
       revenue: sql<number>`coalesce(sum(${bookings.amountTotal}), 0)::int`,
       online: sql<number>`count(*) filter (where ${bookings.channel} = 'ONLINE')::int`,
       counter: sql<number>`count(*) filter (where ${bookings.channel} = 'COUNTER')::int`,
+      // Split by how the money arrived, because the two are reconciled against
+      // different documents: cash against the drawer, UPI against the account
+      // statement. Online takings are neither — they clear through the gateway.
+      cashTaken: sql<number>`coalesce(sum(${bookings.amountTotal}) filter (where ${bookings.counterTender} = 'CASH'), 0)::int`,
+      upiTaken: sql<number>`coalesce(sum(${bookings.amountTotal}) filter (where ${bookings.counterTender} = 'UPI'), 0)::int`,
+      onlineTaken: sql<number>`coalesce(sum(${bookings.amountTotal}) filter (where ${bookings.channel} = 'ONLINE'), 0)::int`,
     })
     .from(bookings)
     .where(
@@ -76,6 +82,9 @@ export default async function AdminDashboard() {
   const online = todayStats?.online ?? 0;
   const counter = todayStats?.counter ?? 0;
   const needsReview = mismatchStats?.count ?? 0;
+  const cashTaken = todayStats?.cashTaken ?? 0;
+  const upiTaken = todayStats?.upiTaken ?? 0;
+  const onlineTaken = todayStats?.onlineTaken ?? 0;
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-6">
@@ -135,6 +144,37 @@ export default async function AdminDashboard() {
           hint="Last 24h · reconciliation sweeps these"
         />
       </div>
+
+      {/*
+        Split by how the money actually arrived, because each part is reconciled
+        against a different document: cash against the drawer, UPI against the
+        account statement, online against the gateway's own settlement report.
+        A single revenue figure can only be checked against the sum of three
+        things nobody has in front of them at once.
+
+        Worth being clear about what the counter figures are and are not: staff
+        tapping "UPI received" is exactly as unverified as tapping "Cash
+        received" — the app has no line to the bank and cannot see a transfer
+        land. These are what staff said they took, which is the thing the
+        statement gets checked against, not a substitute for checking it.
+      */}
+      <section className="mt-3 rounded-xl border border-line bg-surface p-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-muted text-sm">Today&rsquo;s takings, by how it was paid</h2>
+          <Link href="/admin/bookings" className="text-brand shrink-0 text-xs underline">
+            Detail &amp; export
+          </Link>
+        </div>
+        <dl className="mt-3 grid gap-3 sm:grid-cols-3">
+          <Taking label="Cash" value={formatPaise(cashTaken)} hint="Counter · check the drawer" />
+          <Taking label="UPI" value={formatPaise(upiTaken)} hint="Counter · check the statement" />
+          <Taking
+            label="Online"
+            value={formatPaise(onlineTaken)}
+            hint="Gateway · settles separately"
+          />
+        </dl>
+      </section>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
         <section className="rounded-xl border border-line bg-surface p-4">
@@ -286,5 +326,15 @@ function StatusPill({ active, stale }: { active: boolean; stale: boolean }) {
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
       {!active ? "Deactivated" : stale ? "Stale" : "Synced"}
     </span>
+  );
+}
+
+function Taking({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return (
+    <div className="rounded-lg border border-line bg-background px-3 py-2.5">
+      <dt className="text-muted text-xs uppercase tracking-wide">{label}</dt>
+      <dd className="mt-0.5 text-xl font-bold tabular-nums">{value}</dd>
+      <dd className="text-muted mt-0.5 text-[11px]">{hint}</dd>
+    </div>
   );
 }

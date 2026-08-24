@@ -292,6 +292,7 @@ async function main() {
     bookingId: cheap.bookingId,
     deviceId: device!.id,
     rate: { kind: "CUSTOM", perVisitorPaise: 5000 },
+    tender: "UPI",
     actor: SYSTEM,
   });
   check(
@@ -300,6 +301,18 @@ async function main() {
     `${discounted.booking.amountTotal}`,
   );
   check("and recorded per visitor", discounted.booking.perVisitorPaise === 5000);
+  // A till taking UPI during an outage must not have it reconciled as cash —
+  // the drawer would then be expected to hold money that never entered it.
+  check(
+    "the tender chosen offline survives reconciliation",
+    discounted.booking.counterTender === "UPI",
+    String(discounted.booking.counterTender),
+  );
+  check(
+    "and a blank sold without one defaults to cash",
+    result.booking.counterTender === "CASH",
+    String(result.booking.counterTender),
+  );
 
   // Any blank this run has not already consumed. Picked by exclusion rather
   // than by size so this check can never quietly skip itself.

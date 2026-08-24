@@ -75,7 +75,7 @@ const QUICK_COUNTS = Array.from({ length: 10 }, (_, i) => i + 1);
  * the sessionStorage-persisted idempotency key above makes a reload-and-retry
  * safe rather than risking a duplicate sale.
  */
-function ConfirmButton({
+function ConfirmButtons({
   total,
   visitors,
   ready,
@@ -87,7 +87,12 @@ function ConfirmButton({
   /** Distinguishes "no count yet" from "count fine, special price unfinished". */
   countReady: boolean;
 }) {
-  const { pending } = useFormStatus();
+  // `data` is the FormData of the submission in flight, which is how the
+  // pressed button is known: both buttons submit the same form, and only the
+  // one that was actually tapped contributes its name/value.
+  const { pending, data } = useFormStatus();
+  const submitting = pending ? (data?.get("tender") as string | null) : null;
+
   // Set only from the timeout callback below (an async, external-event
   // response — the pattern the purity rule itself calls out as correct), and
   // deliberately never reset elsewhere: a successful sale redirects away and
@@ -108,38 +113,36 @@ function ConfirmButton({
 
   return (
     <>
-      <button
-        type="submit"
-        disabled={pending || !ready}
-        className="flex w-full items-center justify-between gap-4 rounded-xl bg-ok px-5 py-5 text-left text-white transition-colors hover:brightness-95 disabled:opacity-60"
-      >
-        <span className="text-lg font-bold">
-          {pending
-            ? "Creating ticket…"
-            : ready
-              ? "Cash received"
-              : countReady
-                ? "Finish the special price"
-                : "Enter the visitor count"}
+      {/* The amount sits above both buttons rather than inside either. With two
+          ways to pay, repeating it on each one implies the price depends on
+          which is chosen. */}
+      <div className="mb-2.5 flex items-baseline justify-between gap-3 px-0.5">
+        <span className="text-muted text-sm font-medium">
+          {ready
+            ? `${visitors} visitor${visitors === 1 ? "" : "s"}`
+            : countReady
+              ? "Finish the special price"
+              : "Enter the visitor count"}
         </span>
-        {pending || !ready ? (
-          <span
-            aria-hidden
-            className={
-              pending
-                ? "h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white"
-                : "hidden"
-            }
-          />
-        ) : (
-          <span className="text-right leading-tight">
-            <span className="block text-xl font-bold tabular-nums">{total}</span>
-            <span className="block text-xs font-medium text-white/80">
-              {visitors} visitor{visitors === 1 ? "" : "s"}
-            </span>
-          </span>
-        )}
-      </button>
+        <span className="text-2xl font-bold tabular-nums">{total}</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2.5">
+        <TenderButton
+          tender="CASH"
+          label="Cash received"
+          tone="bg-ok"
+          disabled={pending || !ready}
+          submitting={submitting === "CASH"}
+        />
+        <TenderButton
+          tender="UPI"
+          label="UPI received"
+          tone="bg-brand"
+          disabled={pending || !ready}
+          submitting={submitting === "UPI"}
+        />
+      </div>
 
       {pending && stuck ? (
         <div className="mt-3 rounded-lg border border-accent/30 bg-accent/5 p-3 text-center">
@@ -159,6 +162,48 @@ function ConfirmButton({
         </div>
       ) : null}
     </>
+  );
+}
+
+/**
+ * One way of taking the money.
+ *
+ * A submit button carrying its own `name`/`value`, so which tender was chosen
+ * is decided by the tap itself and posted with the sale. Nothing has to be
+ * held in state beforehand and there is no way for a stored selection to drift
+ * out of step with the button staff actually pressed.
+ */
+function TenderButton({
+  tender,
+  label,
+  tone,
+  disabled,
+  submitting,
+}: {
+  tender: "CASH" | "UPI";
+  label: string;
+  tone: string;
+  disabled: boolean;
+  submitting: boolean;
+}) {
+  return (
+    <button
+      type="submit"
+      name="tender"
+      value={tender}
+      disabled={disabled}
+      className={`flex min-h-[4.5rem] flex-col items-center justify-center gap-1.5 rounded-xl px-3 py-4 text-white transition-colors hover:brightness-95 disabled:opacity-60 ${tone}`}
+    >
+      <span className="text-base font-bold leading-tight">
+        {submitting ? "Creating ticket…" : label}
+      </span>
+      {submitting ? (
+        <span
+          aria-hidden
+          className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+        />
+      ) : null}
+    </button>
   );
 }
 
@@ -270,7 +315,7 @@ export function CounterForm({
    * an admin re-prices a category in between, in which case the server's figure
    * is the one that counts. Reconciliation is authoritative; paper is a receipt.
    */
-  async function sellOffline() {
+  async function sellOffline(tender: "CASH" | "UPI") {
     setOfflineError(null);
     if (!ready) return;
 
@@ -287,6 +332,7 @@ export function CounterForm({
       rateCategoryId: selectedRate?.id ?? null,
       customRatePaise: isCustom ? customPaise : null,
       rateNote: isCustom ? (rateNote.trim() || null) : null,
+      tender,
       customerName: text("customerName"),
       customerPhone: text("customerPhone"),
       staffId,
@@ -530,7 +576,7 @@ export function CounterForm({
           however far the page has been scrolled, on a short counter display. */}
       <div className="sticky bottom-0 z-10 -mx-4 border-t border-line bg-background/95 px-4 pb-4 pt-3 backdrop-blur">
         {counter.online ? (
-          <ConfirmButton
+          <ConfirmButtons
             total={total}
             visitors={visitors}
             ready={ready}
@@ -538,11 +584,11 @@ export function CounterForm({
           />
         ) : (
           /*
-           * Offline, this is a plain button rather than a submit: the server
+           * Offline, these are plain buttons rather than submits: the server
            * action behind the form cannot run, and letting the form submit would
            * hang the sale instead of issuing a ticket from the book.
            */
-          <OfflineConfirmButton
+          <OfflineConfirmButtons
             total={total}
             visitors={visitors}
             ready={ready && counter.enrolled && counter.ready}
@@ -555,11 +601,11 @@ export function CounterForm({
                     ? "Enter the visitor count"
                     : "Finish the special price"
             }
-            onSell={() => void sellOffline()}
+            onSell={(tender) => void sellOffline(tender)}
           />
         )}
         <p className="text-muted mt-2 text-center text-xs">
-          Collect the cash before confirming. The ticket prints on the next screen.
+          Take the money before confirming. The ticket prints on the next screen.
         </p>
       </div>
 
@@ -580,8 +626,15 @@ export function CounterForm({
   );
 }
 
-/** The offline twin of ConfirmButton — no form submission, no pending state. */
-function OfflineConfirmButton({
+/**
+ * The offline twin of ConfirmButtons — no form submission, no pending state.
+ *
+ * Both tenders stay available during an outage. UPI does not need this app to
+ * work: the guest scans the park's own QR and shows staff the confirmation on
+ * their phone, exactly as they would if the till were a cash box. Hiding the
+ * option offline would turn a working payment method off for no reason.
+ */
+function OfflineConfirmButtons({
   total,
   visitors,
   ready,
@@ -592,35 +645,46 @@ function OfflineConfirmButton({
   visitors: number;
   ready: boolean;
   reason: string;
-  onSell: () => void;
+  onSell: (tender: "CASH" | "UPI") => void;
 }) {
   const [working, setWorking] = useState(false);
 
+  function sell(tender: "CASH" | "UPI") {
+    setWorking(true);
+    onSell(tender);
+    // Re-enabled once the overlay is dismissed and this remounts; the guard
+    // exists only to swallow a double-tap on a slow tablet.
+    setTimeout(() => setWorking(false), 1200);
+  }
+
   return (
-    <button
-      type="button"
-      disabled={!ready || working}
-      onClick={() => {
-        setWorking(true);
-        onSell();
-        // Re-enabled once the overlay is dismissed and this remounts; the guard
-        // exists only to swallow a double-tap on a slow tablet.
-        setTimeout(() => setWorking(false), 1200);
-      }}
-      className="flex w-full items-center justify-between gap-4 rounded-xl bg-accent px-5 py-5 text-left text-white transition-colors hover:brightness-95 disabled:opacity-60"
-    >
-      <span className="text-lg font-bold">
-        {ready ? "Cash received — offline" : reason}
-      </span>
-      {ready ? (
-        <span className="text-right leading-tight">
-          <span className="block text-xl font-bold tabular-nums">{total}</span>
-          <span className="block text-xs font-medium text-white/80">
-            {visitors} visitor{visitors === 1 ? "" : "s"}
-          </span>
+    <>
+      <div className="mb-2.5 flex items-baseline justify-between gap-3 px-0.5">
+        <span className="text-muted text-sm font-medium">
+          {ready ? `${visitors} visitor${visitors === 1 ? "" : "s"} · offline` : reason}
         </span>
-      ) : null}
-    </button>
+        <span className="text-2xl font-bold tabular-nums">{total}</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2.5">
+        <button
+          type="button"
+          disabled={!ready || working}
+          onClick={() => sell("CASH")}
+          className="flex min-h-[4.5rem] items-center justify-center rounded-xl bg-accent px-3 py-4 text-base font-bold text-white transition-colors hover:brightness-95 disabled:opacity-60"
+        >
+          Cash received
+        </button>
+        <button
+          type="button"
+          disabled={!ready || working}
+          onClick={() => sell("UPI")}
+          className="flex min-h-[4.5rem] items-center justify-center rounded-xl border-2 border-accent px-3 py-4 text-base font-bold text-accent transition-colors hover:bg-accent hover:text-white disabled:opacity-60"
+        >
+          UPI received
+        </button>
+      </div>
+    </>
   );
 }
 

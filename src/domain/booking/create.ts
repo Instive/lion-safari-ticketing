@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { db, type Tx } from "@/db";
-import { bookings, type Booking, type Ticket } from "@/db/schema";
+import { bookings, type Booking, type CounterTender, type Ticket } from "@/db/schema";
 import { generateBookingCode } from "@/lib/codes";
 import { businessDate } from "@/lib/time";
 import { writeAudit, writeChange, type Actor } from "../audit";
@@ -29,6 +29,11 @@ export type CreateBookingInput = {
    * a caller can name a rate, never an amount.
    */
   rate?: RateSelection;
+  /**
+   * How a counter sale was paid for. Ignored on the online channel, which is
+   * confirmed by a verified webhook rather than by a person.
+   */
+  tender?: CounterTender;
   actor: Actor;
 };
 
@@ -51,8 +56,14 @@ export async function createOnlineBooking(
 
 /**
  * Creates a COUNTER booking that is already CASH_CONFIRMED and issues its
- * ticket in the same transaction: the staff member has the cash in hand, so
+ * ticket in the same transaction: the staff member has the money in hand, so
  * booking and ticket must either both exist or neither does.
+ *
+ * `tender` records whether that money was cash or a UPI transfer. It changes
+ * nothing about how the booking is confirmed — a staff member vouching for a
+ * UPI transfer is exactly as unverified as one vouching for notes in a drawer,
+ * and the app cannot see either. It exists so the day's takings can be
+ * reconciled against the drawer and the bank statement separately.
  */
 export async function createCounterBooking(
   input: Omit<CreateBookingInput, "channel">,
@@ -94,6 +105,7 @@ async function createBooking(input: CreateBookingInput): Promise<CreateBookingRe
       customerPhone: input.customerPhone ?? null,
       customerEmail: input.customerEmail ?? null,
       visitDate,
+      counterTender: input.channel === "COUNTER" ? (input.tender ?? "CASH") : null,
       createdByStaffId: input.createdByStaffId ?? null,
       deviceId: input.deviceId ?? null,
       idempotencyKey: input.idempotencyKey,
@@ -127,6 +139,7 @@ async function createBooking(input: CreateBookingInput): Promise<CreateBookingRe
         perVisitorPaise: booking.perVisitorPaise,
         concessional: rate.concessional,
         rateNote: rate.note,
+        tender: booking.counterTender,
       },
     });
 

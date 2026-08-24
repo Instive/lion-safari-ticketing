@@ -33,6 +33,8 @@ export type QueuedSale = {
   rateCategoryId: string | null;
   customRatePaise: number | null;
   rateNote: string | null;
+  /** Cash or UPI, as tapped on the till. */
+  tender: "CASH" | "UPI";
   customerName: string | null;
   customerPhone: string | null;
   staffId: string | null;

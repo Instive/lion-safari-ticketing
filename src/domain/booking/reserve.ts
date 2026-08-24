@@ -1,7 +1,13 @@
 import { and, asc, eq, inArray, lt, sql } from "drizzle-orm";
 
 import { db, type Tx } from "@/db";
-import { bookings, tickets, type Booking, type Ticket } from "@/db/schema";
+import {
+  bookings,
+  tickets,
+  type Booking,
+  type CounterTender,
+  type Ticket,
+} from "@/db/schema";
 import { generateBookingCode } from "@/lib/codes";
 import { businessDate } from "@/lib/time";
 import { writeAudit, writeChange, type Actor } from "../audit";
@@ -144,6 +150,8 @@ export type ActivateInput = {
   /** Which device is claiming the sale — must be the one holding the blank. */
   deviceId: string;
   rate?: RateSelection;
+  /** Cash or UPI, as recorded on the till. Defaults to cash. */
+  tender?: CounterTender;
   customerName?: string | null;
   customerPhone?: string | null;
   /** The counter device's clock at the moment of sale. Audit only. */
@@ -214,6 +222,7 @@ export async function activateReservedBooking(input: ActivateInput): Promise<Act
         perVisitorPaise: quote.perVisitorPaise,
         rateCategoryId: rate.categoryId,
         rateNote: rate.note,
+        counterTender: input.tender ?? "CASH",
         customerName: input.customerName ?? null,
         customerPhone: input.customerPhone ?? null,
         createdByStaffId: input.createdByStaffId ?? null,
@@ -227,6 +236,7 @@ export async function activateReservedBooking(input: ActivateInput): Promise<Act
     const confirmed = await transitionBooking(tx, current.id, "CASH_CONFIRMED", input.actor, {
       soldOffline: true,
       soldOfflineAt: input.soldOfflineAt ?? null,
+      tender: input.tender ?? "CASH",
       rate: rate.label,
       perVisitorPaise: quote.perVisitorPaise,
       amountTotal: quote.amountTotalPaise,

@@ -13,6 +13,8 @@ const saleSchema = z.object({
   bookingId: z.uuid(),
   /** Who was at the till. Recorded against the sale on reconciliation. */
   staffId: z.uuid().optional(),
+  /** How the till took the money. Older queued sales predate this and are cash. */
+  tender: z.enum(["CASH", "UPI"]).default("CASH"),
   rateCategoryId: z.uuid().optional(),
   customRatePaise: z.number().int().min(0).optional(),
   rateNote: z.string().trim().max(200).optional(),
@@ -77,6 +79,7 @@ export async function POST(req: Request): Promise<Response> {
         customerPhone: sale.customerPhone || null,
         soldOfflineAt: sale.soldOfflineAt ?? null,
         createdByStaffId: sale.staffId ?? null,
+        tender: sale.tender,
         actor: { type: "DEVICE", id: device.id, name: device.name },
       });
 

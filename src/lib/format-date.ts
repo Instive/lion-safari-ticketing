@@ -24,6 +24,16 @@ export function formatCalendarDate(isoDate: string): string {
   return format(new Date(year!, month! - 1, day!, 12, 0, 0), "EEE, d MMM yyyy");
 }
 
+/** Clock time alone on the device — "8:47 PM". */
+export function formatDeviceTime(at: Date): string {
+  return format(at, "h:mm a");
+}
+
+/** The device's own calendar date as yyyy-MM-dd, for comparing against a visit date. */
+export function deviceCalendarDate(at: Date): string {
+  return format(at, "yyyy-MM-dd");
+}
+
 /** An instant on the device's own clock — "21 Aug 2026, 8:47 PM". */
 export function formatDeviceDateTime(at: Date): string {
   return format(at, "d MMM yyyy, h:mm a");

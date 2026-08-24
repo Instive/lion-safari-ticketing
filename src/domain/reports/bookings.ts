@@ -10,6 +10,7 @@ import {
   staffUsers,
   tickets,
   type BookingStatus,
+  type CounterTender,
   type TicketStatus,
 } from "@/db/schema";
 import { env } from "@/lib/env";
@@ -209,6 +210,8 @@ export type BookingRow = {
   rateNote: string | null;
   /** Set when the sale was made from a ticket book during an outage. */
   soldOfflineAt: Date | null;
+  /** Cash or UPI at the counter; null for online bookings. */
+  counterTender: CounterTender | null;
 };
 
 function selection() {
@@ -231,6 +234,7 @@ function selection() {
     rateName: rateCategories.name,
     rateNote: bookings.rateNote,
     soldOfflineAt: bookings.soldOfflineAt,
+    counterTender: bookings.counterTender,
     boardedCount: sql<number>`coalesce((
       select sum(${boardingEvents.boardedCount})
       from ${boardingEvents}

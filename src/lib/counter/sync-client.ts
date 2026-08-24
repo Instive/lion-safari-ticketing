@@ -120,6 +120,7 @@ export async function pushSales(): Promise<void> {
         rateCategoryId: sale.rateCategoryId ?? undefined,
         customRatePaise: sale.customRatePaise ?? undefined,
         rateNote: sale.rateNote ?? undefined,
+        tender: sale.tender ?? "CASH",
         customerName: sale.customerName ?? undefined,
         customerPhone: sale.customerPhone ?? undefined,
         soldOfflineAt: sale.soldOfflineAt,

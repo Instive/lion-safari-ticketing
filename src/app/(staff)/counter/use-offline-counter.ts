@@ -29,6 +29,7 @@ export type OfflineSaleInput = {
   rateCategoryId: string | null;
   customRatePaise: number | null;
   rateNote: string | null;
+  tender: "CASH" | "UPI";
   customerName: string | null;
   customerPhone: string | null;
   staffId: string | null;
@@ -131,6 +132,7 @@ export function useOfflineCounter(): OfflineCounter {
         rateCategoryId: input.rateCategoryId,
         customRatePaise: input.customRatePaise,
         rateNote: input.rateNote,
+        tender: input.tender,
         customerName: input.customerName,
         customerPhone: input.customerPhone,
         staffId: input.staffId,

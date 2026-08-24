@@ -64,6 +64,21 @@ export const paymentStatus = pgEnum("payment_status", [
 
 export const deviceType = pgEnum("device_type", ["SCANNER", "COUNTER"]);
 
+/**
+ * How money physically arrived at the counter.
+ *
+ * Note what this is not: proof of payment. Staff tapping "UPI received" is
+ * exactly as unverified as staff tapping "Cash received" — the app has no line
+ * to the UPI account and cannot see a transfer land. This records what staff
+ * say happened so the day's takings can be reconciled against the drawer and
+ * the bank statement separately, and it is why the confirming status remains
+ * CASH_CONFIRMED for both: the status names who vouched for the money (a member
+ * of staff, at the counter), the tender names what form it took.
+ *
+ * Null on online bookings, which are confirmed by a verified webhook instead.
+ */
+export const counterTender = pgEnum("counter_tender", ["CASH", "UPI"]);
+
 // ---------------------------------------------------------------------------
 // Staff & sessions
 // ---------------------------------------------------------------------------
@@ -196,6 +211,9 @@ export const bookings = pgTable(
     customerEmail: text("customer_email"),
 
     visitDate: date("visit_date").notNull(),
+
+    /** How the counter took the money. Null for online bookings. */
+    counterTender: counterTender("counter_tender"),
 
     createdByStaffId: uuid("created_by_staff_id").references(() => staffUsers.id),
     deviceId: uuid("device_id").references(() => devices.id),
@@ -431,6 +449,7 @@ export type Ticket = typeof tickets.$inferSelect;
 export type BoardingEvent = typeof boardingEvents.$inferSelect;
 
 export type BookingStatus = (typeof bookingStatus.enumValues)[number];
+export type CounterTender = (typeof counterTender.enumValues)[number];
 export type TicketStatus = (typeof ticketStatus.enumValues)[number];
 export type PaymentStatus = (typeof paymentStatus.enumValues)[number];
 export type StaffRole = (typeof staffRole.enumValues)[number];

@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, count, eq, sum } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import Link from "next/link";
 
 import { db } from "@/db";
-import { bookings, rateCategories } from "@/db/schema";
+import { rateCategories } from "@/db/schema";
 import { requirePageStaff } from "@/lib/auth/guards";
 import { MAX_VISITORS_PER_BOOKING } from "@/domain/booking/pricing";
-import { recentCounterSales } from "@/domain/reports/counter";
+import { dayEndSummary, recentCounterSales } from "@/domain/reports/counter";
 import { env } from "@/lib/env";
 import { formatPaise } from "@/lib/money";
 import { businessDate, formatLocalTime, formatVisitDate } from "@/lib/time";
@@ -19,24 +19,12 @@ export default async function CounterPage() {
   const staff = await requirePageStaff(["COUNTER"]);
   const today = businessDate();
 
-  const mySalesToday = and(
-    eq(bookings.channel, "COUNTER"),
-    eq(bookings.createdByStaffId, staff.id),
-    eq(bookings.visitDate, today),
-  );
-
-  const [totals, recentSales, rates] = await Promise.all([
+  const [summary, recentSales, rates] = await Promise.all([
     // What this staff member should be able to hand over at the end of the
-    // shift. Only CASH_CONFIRMED counts: a voided sale is CANCELLED and its
-    // money went back out of the drawer, so counting it would overstate.
-    db
-      .select({
-        sales: count(),
-        visitors: sum(bookings.visitorCount),
-        collected: sum(bookings.amountTotal),
-      })
-      .from(bookings)
-      .where(and(mySalesToday, eq(bookings.status, "CASH_CONFIRMED"))),
+    // shift, split the way it will be checked: cash against the drawer, UPI
+    // against the account. Cancelled sales are excluded — that money went back
+    // out — but the day-end slip reports them so a short drawer is explainable.
+    dayEndSummary(staff.id, today),
 
     // The fast, reliable way to answer "did my last sale actually go through" —
     // without it, an unsure staff member's only recourse is guessing or a
@@ -59,13 +47,6 @@ export default async function CounterPage() {
       .orderBy(asc(rateCategories.perVisitorPaise)),
   ]);
 
-  // drizzle returns SUM() as a string (or null when there are no rows).
-  const summary = {
-    sales: totals[0]?.sales ?? 0,
-    visitors: Number(totals[0]?.visitors ?? 0),
-    collected: Number(totals[0]?.collected ?? 0),
-  };
-
   return (
     <main className="mx-auto w-full max-w-lg px-4 py-5">
       <header className="mb-5">
@@ -87,10 +68,19 @@ export default async function CounterPage() {
         {/* Shift running total, so cash in the drawer can be checked against
             the system at any point without leaving this screen. */}
         <dl className="mt-4 grid grid-cols-3 divide-x divide-line overflow-hidden rounded-xl border border-line bg-surface">
-          <ShiftStat label="Sales" value={String(summary.sales)} />
-          <ShiftStat label="Visitors" value={String(summary.visitors)} />
-          <ShiftStat label="Cash taken" value={formatPaise(summary.collected)} />
+          <ShiftStat label="Sales" value={String(summary.total.sales)} />
+          <ShiftStat label="Visitors" value={String(summary.total.visitors)} />
+          <ShiftStat label="Taken" value={formatPaise(summary.total.amount)} />
         </dl>
+
+        <div className="mt-2 flex items-center justify-between gap-3 text-xs">
+          <p className="text-muted tabular-nums">
+            Cash {formatPaise(summary.cash.amount)} · UPI {formatPaise(summary.upi.amount)}
+          </p>
+          <Link href="/counter/day-end" className="shrink-0 text-brand underline underline-offset-4">
+            Print day&rsquo;s sales
+          </Link>
+        </div>
       </header>
 
       <CounterForm

@@ -18,12 +18,13 @@ import { db, pool } from "@/db";
 import { bookings, devices, staffSessions, staffUsers, tickets } from "@/db/schema";
 import { confirmBoarding } from "@/domain/boarding/confirm";
 import { createCounterBooking } from "@/domain/booking/create";
+import { dayEndSummary } from "@/domain/reports/counter";
 import { cancelBooking } from "@/domain/booking/refund";
 import { activateReservedBooking, allocateBook, loadBook } from "@/domain/booking/reserve";
 import { generateApiKey, sha256 } from "@/lib/codes";
 import { env, staffBaseUrl } from "@/lib/env";
 import { formatPaise } from "@/lib/money";
-import { businessDate, formatDateTime } from "@/lib/time";
+import { businessDate, formatClockTime, formatVisitDate } from "@/lib/time";
 
 const BASE = staffBaseUrl();
 
@@ -105,11 +106,18 @@ async function main() {
   check("shows the visitor count", ticketPage.body.includes(">3<"));
   // A printed ticket outlives the screen it came from, so it has to say when
   // it was issued — from the server clock, never the counter device's.
-  check("shows the issue time", ticketPage.body.includes("Issued"));
+  //
+  // On a same-day ticket the visit date and the issue time share one line,
+  // because printing "24 Aug 2026" twice told a guest nothing. The time is the
+  // part that has to survive that merge, so it is asserted against the server's
+  // own record of when the ticket was issued.
+  const sameDayLine = `${formatVisitDate(sale.booking.visitDate)} · ${formatClockTime(
+    ticketRows[0]!.issuedAt,
+  )}`;
+  check("shows the visit date and issue time on one line", ticketPage.body.includes(sameDayLine), sameDayLine);
   check(
-    "the issue time is the server's, to the minute",
-    ticketPage.body.includes(formatDateTime(ticketRows[0]!.issuedAt)),
-    formatDateTime(ticketRows[0]!.issuedAt),
+    "and does not also print a separate Issued row",
+    !ticketPage.body.includes(">Issued<"),
   );
 
   const stillOneTicket = await db
@@ -348,6 +356,46 @@ async function main() {
     `offline@${offlineAt} online@${onlineAt}`,
   );
   check("and is labelled as sold offline", panel.body.includes("offline"));
+
+  // ---------------------------------------------------------------------
+  console.log("\n12. Cash and UPI are counted separately, and the day-end slip prints");
+  const upiSale = await createCounterBooking({
+    visitorCount: 2,
+    idempotencyKey: randomUUID(),
+    createdByStaffId: counter.staffId,
+    tender: "UPI",
+    actor: { type: "STAFF", id: counter.staffId, name: "Counter Staff" },
+  });
+  check("a UPI sale is confirmed like any other", upiSale.booking.status === "CASH_CONFIRMED");
+  check(
+    "and records how the money arrived",
+    upiSale.booking.counterTender === "UPI",
+    String(upiSale.booking.counterTender),
+  );
+
+  const summary = await dayEndSummary(counter.staffId, businessDate());
+  check(
+    "the UPI sale lands in the UPI column",
+    summary.upi.amount >= upiSale.booking.amountTotal,
+    `upi ${summary.upi.amount}`,
+  );
+  // The split existing is worth nothing if it does not add up: this is the
+  // number the drawer and the bank statement are checked against together.
+  check(
+    "cash + UPI equals the day's takings",
+    summary.cash.amount + summary.upi.amount === summary.total.amount,
+    `${summary.cash.amount} + ${summary.upi.amount} vs ${summary.total.amount}`,
+  );
+  check(
+    "the voided sale is excluded from takings but still reported",
+    summary.cancelled.sales > 0,
+    `${summary.cancelled.sales} cancelled`,
+  );
+
+  const slip = await get("/counter/day-end", counter.cookie);
+  check("the day-end slip renders", slip.status === 200, `got ${slip.status}`);
+  check("it shows the cash total", slip.body.includes(formatPaise(summary.cash.amount)));
+  check("it shows the UPI total", slip.body.includes(formatPaise(summary.upi.amount)));
 
   console.log(
     failures === 0
