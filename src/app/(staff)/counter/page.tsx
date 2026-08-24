@@ -75,8 +75,13 @@ export default async function CounterPage() {
           <ShiftStat label="Taken" value={formatPaise(summary.total.amount)} />
         </dl>
 
-        <p className="text-muted mt-2 text-xs tabular-nums">
-          Cash {formatPaise(summary.cash.amount)} · UPI {formatPaise(summary.upi.amount)}
+        {/* This is money, and it was the smallest text on the screen. The two
+            figures are what the drawer and the statement get checked against,
+            so they carry the weight and the labels stay quiet. */}
+        <p className="text-muted mt-2 text-sm tabular-nums">
+          Cash <span className="text-foreground font-semibold">{formatPaise(summary.cash.amount)}</span>
+          {" · "}
+          UPI <span className="text-foreground font-semibold">{formatPaise(summary.upi.amount)}</span>
         </p>
       </header>
 

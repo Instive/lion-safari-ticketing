@@ -2,8 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { BrandMark } from "@/components/staff/brand-mark";
+import { SignOutButton } from "@/components/staff/sign-out-button";
+import { StaffNav } from "@/components/staff/staff-nav";
 import { getSessionStaff } from "@/lib/auth/session";
-import { signOutAction } from "@/lib/auth/sign-out";
 
 export default async function StaffLayout({ children }: LayoutProps<"/">) {
   const staff = await getSessionStaff();
@@ -19,18 +20,14 @@ export default async function StaffLayout({ children }: LayoutProps<"/">) {
             <Link href="/staff" aria-label="Staff home">
               <BrandMark size="sm" />
             </Link>
-            <nav className="flex gap-3 text-sm">
-              {staff.role === "ADMIN" ? (
-                <Link href="/admin" className="text-muted hover:text-foreground">
-                  Admin
-                </Link>
-              ) : null}
-              {staff.role === "ADMIN" || staff.role === "COUNTER" ? (
-                <Link href="/counter" className="text-muted hover:text-foreground">
-                  Counter
-                </Link>
-              ) : null}
-            </nav>
+            <StaffNav
+              items={[
+                ...(staff.role === "ADMIN" ? [{ href: "/admin", label: "Admin" }] : []),
+                ...(staff.role === "ADMIN" || staff.role === "COUNTER"
+                  ? [{ href: "/counter", label: "Counter" }]
+                  : []),
+              ]}
+            />
           </div>
 
           <div className="flex items-center gap-3 text-sm">
@@ -49,11 +46,7 @@ export default async function StaffLayout({ children }: LayoutProps<"/">) {
                 Find a ticket
               </Link>
             ) : null}
-            <form action={signOutAction}>
-              <button type="submit" className="rounded-lg border border-line px-3 py-1.5 hover:bg-background">
-                Sign out
-              </button>
-            </form>
+            <SignOutButton name={staff.name} />
           </div>
         </div>
       </header>
