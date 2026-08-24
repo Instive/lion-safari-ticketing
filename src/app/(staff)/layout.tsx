@@ -37,6 +37,18 @@ export default async function StaffLayout({ children }: LayoutProps<"/">) {
             <span className="text-muted hidden sm:inline">
               {staff.name} · {staff.role.toLowerCase()}
             </span>
+            {/* Lost-ticket lookup lives up here because it is needed FROM
+                anywhere — a guest turns up at the counter having lost their
+                ticket while staff are mid-sale, mid-reprint, anywhere. Buried
+                on the sale screen it was one more thing to navigate back to. */}
+            {staff.role === "ADMIN" || staff.role === "COUNTER" ? (
+              <Link
+                href="/counter/lookup"
+                className="rounded-lg border border-brand/40 px-3 py-1.5 font-semibold text-brand hover:bg-brand hover:text-white"
+              >
+                Find a ticket
+              </Link>
+            ) : null}
             <form action={signOutAction}>
               <button type="submit" className="rounded-lg border border-line px-3 py-1.5 hover:bg-background">
                 Sign out

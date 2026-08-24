@@ -29,7 +29,7 @@ import {
 } from "@/domain/reports/ticket-books";
 import { DomainError } from "@/domain/errors";
 import { generateApiKey, sha256 } from "@/lib/codes";
-import { env } from "@/lib/env";
+import { env, staffBaseUrl } from "@/lib/env";
 import { businessDate } from "@/lib/time";
 
 let failures = 0;
@@ -343,6 +343,36 @@ async function main() {
     untouched?.status === "RESERVED",
     untouched?.status,
   );
+
+  // -----------------------------------------------------------------------
+  console.log("\n11. The book API answers a counter till, and only a counter till");
+  // A till enrols itself in one tap now (enrolThisTillAction), which mints
+  // exactly this kind of key. What that key may reach is the boundary worth
+  // holding: the book endpoint hands back RAW tokens, because the counter has
+  // to print them. A gate device must never be able to pull that list — it is
+  // issued only token hashes for precisely this reason (spec §5).
+  const scannerKey = generateApiKey();
+  await db.insert(devices).values({
+    name: `Verify Gate ${Date.now()}`,
+    type: "SCANNER",
+    apiKeyHash: sha256(scannerKey),
+  });
+
+  const asCounter = await fetch(`${staffBaseUrl()}/api/counter/book`, {
+    headers: { "x-device-key": apiKey },
+  });
+  check("a counter key is accepted", asCounter.status === 200, `got ${asCounter.status}`);
+
+  const payload = (await asCounter.json()) as { blanks: { token?: string }[] };
+  check("and the blanks come back with tokens to print", Boolean(payload.blanks[0]?.token));
+
+  const asScanner = await fetch(`${staffBaseUrl()}/api/counter/book`, {
+    headers: { "x-device-key": scannerKey },
+  });
+  check("a gate key is refused", asScanner.status === 401, `got ${asScanner.status}`);
+
+  const noKey = await fetch(`${staffBaseUrl()}/api/counter/book`);
+  check("and an unauthenticated caller is refused", noKey.status === 401, `got ${noKey.status}`);
 
   console.log(
     failures === 0

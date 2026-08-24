@@ -57,11 +57,13 @@ export default async function CounterPage() {
               {formatVisitDate(today)} · {staff.name}
             </p>
           </div>
+          {/* The end-of-shift action, sitting with the shift totals it prints
+              rather than tucked under them as a text link. */}
           <Link
-            href="/counter/lookup"
+            href="/counter/day-end"
             className="touch-target grid shrink-0 place-items-center rounded-xl border border-line bg-surface px-4 text-sm font-semibold hover:border-brand"
           >
-            Find a ticket
+            Print day&rsquo;s sales
           </Link>
         </div>
 
@@ -73,14 +75,9 @@ export default async function CounterPage() {
           <ShiftStat label="Taken" value={formatPaise(summary.total.amount)} />
         </dl>
 
-        <div className="mt-2 flex items-center justify-between gap-3 text-xs">
-          <p className="text-muted tabular-nums">
-            Cash {formatPaise(summary.cash.amount)} · UPI {formatPaise(summary.upi.amount)}
-          </p>
-          <Link href="/counter/day-end" className="shrink-0 text-brand underline underline-offset-4">
-            Print day&rsquo;s sales
-          </Link>
-        </div>
+        <p className="text-muted mt-2 text-xs tabular-nums">
+          Cash {formatPaise(summary.cash.amount)} · UPI {formatPaise(summary.upi.amount)}
+        </p>
       </header>
 
       <CounterForm
@@ -93,9 +90,14 @@ export default async function CounterPage() {
 
       {recentSales.length > 0 ? (
         <section className="mt-8">
-          <div className="mb-2 flex items-baseline justify-between">
+          <div className="mb-2 flex items-center justify-between gap-3">
             <h2 className="text-muted text-sm font-medium">Your last sales today</h2>
-            <Link href="/counter/lookup" className="text-xs text-brand underline">
+            {/* A chip rather than a text link: this list is only the last five,
+                so the way to the rest has to be findable at a glance. */}
+            <Link
+              href="/counter/lookup"
+              className="shrink-0 rounded-lg border border-brand/40 px-2.5 py-1 text-xs font-semibold text-brand hover:bg-brand hover:text-white"
+            >
               See all
             </Link>
           </div>

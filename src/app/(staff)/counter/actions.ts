@@ -9,10 +9,12 @@ import { createCounterBooking } from "@/domain/booking/create";
 import { MAX_VISITORS_PER_BOOKING, type RateSelection } from "@/domain/booking/pricing";
 import { cancelBooking } from "@/domain/booking/refund";
 import { DomainError, ForbiddenError } from "@/domain/errors";
+import { writeAudit } from "@/domain/audit";
 import { requireStaff } from "@/lib/auth/guards";
+import { generateApiKey, sha256 } from "@/lib/codes";
 import { rupeeStringToPaise } from "@/lib/money";
 import { db } from "@/db";
-import { bookings, tickets } from "@/db/schema";
+import { bookings, devices, tickets } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 const schema = z.object({
@@ -199,4 +201,60 @@ export async function voidOwnSaleAction(
   // the now-cancelled ticket instead of leaving a stale "valid" QR on screen.
   revalidatePath(`/counter/ticket/${bookingCode}`);
   return { voided: true };
+}
+
+export type EnrolTillState = { error?: string; deviceKey?: string };
+
+/**
+ * Sets this browser up as a counter till, in one tap.
+ *
+ * The till still gets a device identity, and that part is not ceremony. Books
+ * of blanks are bound to `reservedDeviceId`: it is what lets an admin void
+ * every unsold ticket on a lost tablet, what makes the daily "sold vs boarded"
+ * reconciliation per-till, and what keeps a queued sale authenticatable after
+ * the 12-hour staff session behind it has expired — an outage can easily
+ * outlive a shift.
+ *
+ * What was ceremony was making staff register the device in the admin portal
+ * and copy a key across. The key is minted here instead and handed straight to
+ * the browser that asked for it.
+ *
+ * Deliberately NOT automatic on page load. Every till holds live, admissible
+ * tickets, so one silently created by each browser that ever opened /counter
+ * would multiply the exposure the ticket book exists to bound. It stays a
+ * deliberate act, by a named staff member, written to the audit log.
+ */
+export async function enrolThisTillAction(): Promise<EnrolTillState> {
+  let staff;
+  try {
+    staff = await requireStaff(["COUNTER"]);
+  } catch (err) {
+    if (err instanceof ForbiddenError) redirect("/login?expired=1");
+    throw err;
+  }
+
+  try {
+    const apiKey = generateApiKey();
+    const [device] = await db
+      .insert(devices)
+      .values({
+        name: `Till — ${staff.name} — ${businessDate()}`,
+        type: "COUNTER",
+        apiKeyHash: sha256(apiKey),
+      })
+      .returning();
+
+    await writeAudit(db, {
+      actor: { type: "STAFF", id: staff.id, name: staff.name },
+      action: "device.registered",
+      entity: "device",
+      entityId: device!.id,
+      after: { name: device!.name, type: device!.type, self: true },
+    });
+
+    return { deviceKey: apiKey };
+  } catch (err) {
+    console.error("[counter] till enrolment failed", err);
+    return { error: "Could not set this till up. Check the connection and try again." };
+  }
 }

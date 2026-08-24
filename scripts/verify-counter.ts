@@ -397,6 +397,44 @@ async function main() {
   check("it shows the cash total", slip.body.includes(formatPaise(summary.cash.amount)));
   check("it shows the UPI total", slip.body.includes(formatPaise(summary.upi.amount)));
 
+  // ---------------------------------------------------------------------
+  console.log("\n13. Lost-ticket lookup finds a sale by whatever the guest can offer");
+  // A guest who has lost their ticket is the whole reason this screen exists,
+  // and what they can supply is rarely a full booking code in capitals: it is
+  // part of a creased code, a phone number, or their own name.
+  const marker = `Zizzo${Date.now().toString().slice(-6)}`;
+  const findable = await createCounterBooking({
+    visitorCount: 2,
+    customerName: marker,
+    customerPhone: "9876500123",
+    idempotencyKey: randomUUID(),
+    createdByStaffId: counter.staffId,
+    actor: { type: "STAFF", id: counter.staffId, name: "Counter Staff" },
+  });
+  const found = findable.booking.bookingCode;
+
+  const byPartialCode = await get(
+    `/counter/lookup?q=${found.slice(2, 7).toLowerCase()}`,
+    counter.cookie,
+  );
+  check(
+    "part of a booking code, in lower case, finds it",
+    byPartialCode.body.includes(found),
+    found.slice(2, 7).toLowerCase(),
+  );
+
+  const byPhone = await get("/counter/lookup?q=9876500123", counter.cookie);
+  check("a phone number finds it", byPhone.body.includes(found));
+
+  const byName = await get(`/counter/lookup?q=${marker.toLowerCase()}`, counter.cookie);
+  check("the guest's own name finds it", byName.body.includes(found), marker);
+
+  const noMatch = await get("/counter/lookup?q=zzzznotathing", counter.cookie);
+  check(
+    "and a search that matches nothing says so, rather than looking empty",
+    noMatch.body.includes("Nothing matched") && !noMatch.body.includes(found),
+  );
+
   console.log(
     failures === 0
       ? "\nCounter flow behaved correctly end to end.\n"
