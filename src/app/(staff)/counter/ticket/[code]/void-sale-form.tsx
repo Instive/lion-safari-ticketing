@@ -44,7 +44,7 @@ export function VoidSaleForm({ bookingCode }: { bookingCode: string }) {
   }
 
   return (
-    <div className="no-print border-t border-line pt-4 lg:border-t-0 lg:pt-0">
+    <div className="no-print mt-5 border-t border-line pt-4">
       {!confirming ? (
         <>
           <button

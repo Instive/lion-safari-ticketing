@@ -73,49 +73,57 @@ export default async function CounterTicketPage({
           };
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-6">
+    /*
+      `print:block print:min-h-0` is load-bearing, not tidiness: the full-height
+      flex column is what pins the actions to the bottom of the screen, and left
+      in place at print time it pads an 80mm thermal roll out to a viewport's
+      worth of blank paper on every single ticket.
+    */
+    <main className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-4 py-6 print:block print:min-h-0">
       <ClearDraftSaleKey />
 
       {/*
         Three columns, with the third left empty on purpose: it is what keeps
-        the ticket centred on the screen rather than shunted right by the panel
-        beside it. A ticket is the thing being handed over, so it stays where
-        the eye already expects it, and the status and correction move into the
-        space that was previously blank.
+        the ticket centred on the screen rather than shunted right by the status
+        panel beside it. A ticket is the thing being handed over, so it stays
+        where the eye already expects it, and the status moves into the space
+        that was previously blank.
 
-        Placement is explicit rather than left to auto-flow, which would put the
-        cancel button in that empty third column — on the right, opposite the
-        status it belongs with. Below `lg` the grid collapses and DOM order
-        takes over: status → ticket → actions → cancel, which keeps a
-        destructive button below the thing it destroys.
+        Below `lg` the grid collapses and DOM order takes over: status → ticket
+        → cancel.
       */}
-      <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:items-start lg:gap-6">
+      <div className="flex flex-1 flex-col gap-5 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:items-start lg:gap-6">
         <div
-          className={`no-print rounded-xl border px-4 py-3 lg:col-start-1 lg:row-start-1 lg:max-w-72 lg:justify-self-end ${banner.tone}`}
+          className={`no-print rounded-xl border px-4 py-3 lg:col-start-1 lg:max-w-72 lg:justify-self-end ${banner.tone}`}
         >
           <p className="font-semibold">{banner.title}</p>
           <p className="text-muted text-sm">{banner.note}</p>
         </div>
 
-        <div className="mx-auto w-full max-w-md lg:col-start-2 lg:row-span-2 lg:row-start-1">
+        <div className="mx-auto w-full max-w-md lg:col-start-2">
           <TicketView ticket={row} />
 
-          <div className="no-print mt-5 grid grid-cols-2 gap-3">
-            <PrintButton />
-            <Link
-              href="/counter"
-              className="grid min-h-14 place-items-center rounded-xl bg-brand px-4 font-semibold text-white hover:bg-brand-strong"
-            >
-              Next sale
-            </Link>
-          </div>
+          {/* Directly under the ticket, because that is the thing it acts on —
+              and far enough from the pinned bar below that the destructive
+              button is never the one under a thumb reaching for "Next sale". */}
+          {canVoid ? <VoidSaleForm bookingCode={row.bookingCode} /> : null}
         </div>
+      </div>
 
-        {canVoid ? (
-          <div className="no-print lg:col-start-1 lg:row-start-2 lg:max-w-72 lg:justify-self-end">
-            <VoidSaleForm bookingCode={row.bookingCode} />
-          </div>
-        ) : null}
+      {/* Pinned like the tender buttons on the sale screen: however far staff
+          have scrolled down a tall ticket, the way onward stays under their
+          thumb. Sticky elements keep their space in flow, so nothing is hidden
+          behind this and the content needs no extra padding. */}
+      <div className="no-print sticky bottom-0 z-10 -mx-4 mt-6 border-t border-line bg-background/95 px-4 pb-4 pt-3 backdrop-blur">
+        <div className="mx-auto grid max-w-md grid-cols-2 gap-3">
+          <PrintButton />
+          <Link
+            href="/counter"
+            className="grid min-h-14 place-items-center rounded-xl bg-brand px-4 font-semibold text-white hover:bg-brand-strong"
+          >
+            Next sale
+          </Link>
+        </div>
       </div>
     </main>
   );
