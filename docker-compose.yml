@@ -1,0 +1,39 @@
+# Postgres for local development.
+#
+# The README's alternative — `brew install postgresql@16` — works, but drifts:
+# different major versions on different machines, and a database that outlives
+# any memory of how it got into its current state. This is one command, the same
+# version Render runs, and disposable:
+#
+#   docker compose up -d
+#   npm run db:reset          # migrate + seed + demo data
+#
+#   docker compose down -v    # and it is gone
+#
+# If you already run Postgres on 5432, change the host side of the port mapping
+# below (e.g. "5433:5432") and update DATABASE_URL in .env.local to match.
+
+services:
+  db:
+    image: postgres:16
+    container_name: lion-safari-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lion
+      POSTGRES_PASSWORD: lion
+      POSTGRES_DB: lion_safari
+    ports:
+      - "5432:5432"
+    volumes:
+      - lion-safari-pgdata:/var/lib/postgresql/data
+    # Compose reports the container healthy only once Postgres will actually
+    # accept a connection, so `db:migrate` straight after `up -d` does not race
+    # the server's own startup.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lion -d lion_safari"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  lion-safari-pgdata:

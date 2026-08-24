@@ -21,6 +21,7 @@ import {
 import { csvCell } from "@/lib/csv";
 import { env, staffBaseUrl } from "@/lib/env";
 import { businessDate } from "@/lib/time";
+import { assertNotProduction } from "./lib/guard";
 
 const BASE = staffBaseUrl();
 
@@ -53,6 +54,7 @@ async function get(path: string, cookie: string) {
 }
 
 async function main() {
+  assertNotProduction("run the reports checks");
   console.log(`Testing bookings reporting at ${BASE}\n`);
 
   const admin = await sessionCookieFor("admin");

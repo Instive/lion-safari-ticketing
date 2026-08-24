@@ -11,6 +11,7 @@ import { db, pool } from "@/db";
 import { devices, staffUsers } from "@/db/schema";
 import { generateApiKey, sha256 } from "@/lib/codes";
 import { hashPassword } from "@/lib/auth/password";
+import { assertNotProduction } from "./lib/guard";
 
 async function upsertStaff(
   username: string,
@@ -39,6 +40,7 @@ async function upsertStaff(
 }
 
 async function main() {
+  assertNotProduction("seed staff accounts and the gate device");
   console.log("Seeding staff accounts…");
   await upsertStaff("admin", "Park Administrator", "ADMIN", process.env.ADMIN_PASSWORD ?? "admin12345");
   await upsertStaff("counter", "Counter Staff", "COUNTER", process.env.COUNTER_PASSWORD ?? "counter12345");

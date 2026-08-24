@@ -15,6 +15,7 @@ import { staffBaseUrl } from "@/lib/env";
 import { judge } from "@/lib/scanner/judge";
 import type { CachedTicket } from "@/lib/scanner/db";
 import { businessDate } from "@/lib/time";
+import { assertNotProduction } from "./lib/guard";
 
 const BASE = staffBaseUrl();
 
@@ -66,6 +67,7 @@ async function pushEvents(
 }
 
 async function main() {
+  assertNotProduction("run the scanner checks");
   console.log(`Testing scanner APIs at ${BASE}\n`);
 
   // A dedicated device for this run, so the real gate device is untouched.

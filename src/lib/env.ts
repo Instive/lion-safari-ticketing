@@ -18,6 +18,24 @@ const schema = z.object({
   STAFF_BASE_URL: z.url().optional(),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
+  /**
+   * Which deployment this is — a laptop, the shared dev site, or the real one.
+   *
+   * Separate from NODE_ENV because NODE_ENV cannot answer this question: the dev
+   * site is a genuine HTTPS deployment and needs `NODE_ENV=production` for
+   * secure session cookies (`src/lib/auth/session.ts`) and for the offline
+   * service worker to register at all (`src/components/staff/service-worker.tsx`).
+   * Both deployments are "production" to Node; only one of them is production to
+   * the park.
+   *
+   * Defaults to `production` on purpose, which is the opposite of convenient. An
+   * environment that forgets to declare itself is treated as the one where
+   * seeding and the verify suite are refused, so the failure mode of a missing
+   * variable is a script that will not run — never a script that quietly
+   * rewrites the live database.
+   */
+  APP_ENV: z.enum(["local", "dev", "production"]).default("production"),
+
   SESSION_SECRET: z.string().min(32),
 
   TICKET_PRICE_PAISE: z.coerce.number().int().positive(),

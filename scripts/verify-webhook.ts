@@ -14,6 +14,7 @@ import { bookings, payments, tickets } from "@/db/schema";
 import { createOnlineBooking } from "@/domain/booking/create";
 import { env } from "@/lib/env";
 import { paiseToRupeeString } from "@/lib/money";
+import { assertNotProduction } from "./lib/guard";
 
 const BASE = env.APP_BASE_URL;
 const WEBHOOK_URL = `${BASE}/api/payments/webhook/cashfree`;
@@ -111,6 +112,7 @@ async function ticketCount(bookingId: string) {
 }
 
 async function main() {
+  assertNotProduction("run the webhook checks");
   console.log(`Testing webhook at ${WEBHOOK_URL}\n`);
 
   // ---------------------------------------------------------------------

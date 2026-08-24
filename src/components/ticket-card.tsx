@@ -30,6 +30,16 @@ export type TicketCardData = {
    */
   issuedTimeLabel?: string | null;
   customerName?: string | null;
+  /**
+   * True on any deployment that is not production.
+   *
+   * Passed in rather than read here, because this is a Client Component and
+   * `@/lib/env` validates server secrets the moment it loads — importing it
+   * from the browser is what once threw `DATABASE_URL: expected string` and
+   * took the offline sync loop down with it. Server code reads `APP_ENV` and
+   * hands the answer down, the same way the date labels arrive pre-formatted.
+   */
+  isTest?: boolean;
 };
 
 const statusCopy: Record<TicketStatus, { label: string; note: string }> = {
@@ -74,6 +84,22 @@ export function TicketCard({
 
   return (
     <article className="ticket mx-auto w-full max-w-sm overflow-hidden rounded-2xl border border-line bg-surface print:rounded-none">
+      {/*
+        Deliberately NOT `no-print`, unlike the status badge above it.
+
+        A test ticket printed on the dev system is indistinguishable from a real
+        one the moment it leaves the screen — same layout, same QR, same paper.
+        The screen banner protects the person who printed it; only this protects
+        everyone who sees it afterwards, including the gate. It is the first
+        thing on the ticket because a strip of thermal paper gets read from the
+        top down.
+      */}
+      {ticket.isTest ? (
+        <p className="border-b-2 border-black bg-black px-3 py-1.5 text-center text-[11px] font-bold uppercase tracking-[0.14em] text-white print:bg-white print:text-black">
+          Test ticket — not valid for entry
+        </p>
+      ) : null}
+
       <header className="flex items-center justify-center gap-3 px-3 pb-2.5 pt-3">
         {/*
           `unoptimized`, and pointing at a pre-sized file, on purpose. The

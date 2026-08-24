@@ -25,6 +25,7 @@ import { generateApiKey, sha256 } from "@/lib/codes";
 import { env, staffBaseUrl } from "@/lib/env";
 import { formatPaise } from "@/lib/money";
 import { businessDate, formatClockTime, formatVisitDate } from "@/lib/time";
+import { assertNotProduction } from "./lib/guard";
 
 const BASE = staffBaseUrl();
 
@@ -61,6 +62,7 @@ async function get(path: string, cookie: string) {
 }
 
 async function main() {
+  assertNotProduction("run the counter checks");
   console.log(`Testing counter flow at ${BASE}\n`);
 
   const counter = await sessionCookieFor("counter");

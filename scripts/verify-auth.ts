@@ -11,6 +11,7 @@ import { db, pool } from "@/db";
 import { staffSessions, staffUsers, type StaffRole } from "@/db/schema";
 import { hashPassword } from "@/lib/auth/password";
 import { env, staffBaseUrl } from "@/lib/env";
+import { assertNotProduction } from "./lib/guard";
 
 const BASE = staffBaseUrl();
 
@@ -61,6 +62,7 @@ async function visit(path: string, cookie?: string) {
 }
 
 async function main() {
+  assertNotProduction("run the auth checks");
   console.log(`Testing authorization at ${BASE}\n`);
 
   const admin = await sessionFor("ADMIN");

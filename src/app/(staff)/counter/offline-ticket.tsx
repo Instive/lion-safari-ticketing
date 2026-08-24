@@ -31,9 +31,12 @@ export type OfflineTicketData = {
  */
 export function OfflineTicket({
   ticket,
+  isTest,
   onDone,
 }: {
   ticket: OfflineTicketData;
+  /** Read from APP_ENV on the server and handed down — see TicketCardData.isTest. */
+  isTest: boolean;
   onDone: () => void;
 }) {
   const [qr, setQr] = useState<string | null>(null);
@@ -86,6 +89,7 @@ export function OfflineTicket({
                       ? formatDeviceTime(ticket.issuedAt)
                       : null,
                   customerName: ticket.customerName,
+                  isTest,
                 }}
                 qrDataUrl={qr}
               />

@@ -14,21 +14,59 @@ Built to the requirements in [Lion_Safari_Ticketing_Production_Requirements.txt]
 | Gate scanner | `/scanner` | Device key + SCANNER staff |
 | Admin | `/admin` | ADMIN only |
 
+## Environments
+
+There are three, and each one says which it is through `APP_ENV`:
+
+| `APP_ENV` | Where | Notes |
+|---|---|---|
+| `local` | your laptop | |
+| `dev` | the `dev` branch, deployed | free Render stack, own database |
+| `production` | the `main` branch, deployed | the real park |
+
+**`APP_ENV` defaults to `production` when unset, deliberately.** `db:seed`,
+`db:seed:demo` and every `verify:*` script rewrite data and refuse to run unless
+it says otherwise, so forgetting the variable can never be the reason the live
+database is overwritten. A fresh clone therefore needs `APP_ENV=local` in
+`.env.local` before the seed will run — the error message says so.
+
+Anything that is not production announces itself: a red banner on every screen
+including the public site, `X-Robots-Tag: noindex`, and **`TEST TICKET — NOT
+VALID FOR ENTRY` printed on the ticket itself**. That last one is not decorative.
+The dev site exists so staff can rehearse, which means someone will eventually
+take a sale on it and hand a guest a piece of paper.
+
+### Promoting dev to production
+
+```
+push to `dev`  →  Render deploys the dev stack  →  staff test it
+      →  open a PR from `dev` to `main`  →  Merge   ← the deploy
+      →  Render rebuilds production, running db:migrate:prod at boot
+```
+
+One caveat worth knowing rather than discovering: a migration that is instant on
+a small dev database can lock a populated production table. Migration `0002`
+here already needed hand-editing into add-nullable → backfill → `SET NOT NULL`
+for exactly that reason. Dev proves a migration *runs*; it does not prove it runs
+*quickly* against real data.
+
 ## Running it locally
 
 ```bash
-# 1. Postgres (macOS example)
-brew install postgresql@16 && brew services start postgresql@16
-createdb lion_safari
+# 1. Postgres — either Docker (one command, disposable) …
+docker compose up -d
+#    … or a local install:
+#    brew install postgresql@16 && brew services start postgresql@16 && createdb lion_safari
 
 # 2. Configure
 cp .env.example .env.local
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"  # → SESSION_SECRET
+#    Make sure .env.local has APP_ENV=local, or the seed will refuse to run.
 
-# 3. Schema and seed accounts
+# 3. Schema and data
 npm install
-npm run db:migrate
-npm run db:seed          # prints the gate device API key ONCE — copy it
+npm run db:reset         # migrate + seed accounts + a fortnight of demo trading
+#    (db:reset prints the gate device API key ONCE — copy it)
 
 # 4. Two processes
 npm run dev              # web
@@ -37,6 +75,16 @@ npm run worker           # ticket email + payment reconciliation
 
 Seeded logins: `admin` / `counter` / `gate` (dev passwords are printed by the seed).
 Enter the device key at `/scanner` to enrol the gate terminal.
+
+`db:seed:demo` fills the database with about 300 bookings across two weeks —
+online and counter, cash and UPI, concessions, cancellations and boardings — so
+the admin screens, the day-end slip and the CSV export have something real to
+show. Empty screens all look fine, which is how a broken report reaches the
+counter unnoticed. It builds everything through the domain functions, so the data
+obeys the same invariants production data does.
+
+To debug against the deployed dev database from your laptop, point `DATABASE_URL`
+at its external connection string and set `APP_ENV=dev`.
 
 ## Testing the online payment flow locally
 
@@ -74,6 +122,7 @@ Either way the booking is confirmed by verified server-side evidence — the fal
 These scripts exercise the failure scenarios from spec §14 against a running dev server. They print what they did, so you can read the guarantees rather than trust them.
 
 ```bash
+npm run verify:guards    # the production guard: dev tooling cannot touch the live database
 npm run verify:domain    # idempotency: double booking, double boarding, all-or-nothing
 npm run verify:webhook   # duplicate / tampered / forged / unsigned / underpaid webhooks
 npm run verify:scanner   # sync, offline replay, used-ticket rejection, device lockout

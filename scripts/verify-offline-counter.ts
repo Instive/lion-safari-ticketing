@@ -31,6 +31,7 @@ import { DomainError } from "@/domain/errors";
 import { generateApiKey, sha256 } from "@/lib/codes";
 import { env, staffBaseUrl } from "@/lib/env";
 import { businessDate } from "@/lib/time";
+import { assertNotProduction } from "./lib/guard";
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = "") {
@@ -41,6 +42,7 @@ function check(label: string, ok: boolean, detail = "") {
 const SYSTEM = { type: "SYSTEM", id: "verify-offline-counter" } as const;
 
 async function main() {
+  assertNotProduction("run the offline counter checks");
   console.log("Testing offline counter ticket books\n");
 
   const today = businessDate();

@@ -68,6 +68,23 @@ const STAFF_HOST = process.env.STAFF_BASE_URL
   : null;
 
 /**
+ * Read straight from `process.env` for the same reason as above — the proxy
+ * runtime must not pull in the zod schema and everything it validates.
+ *
+ * Anything that is not production gets `X-Robots-Tag: noindex`. A dev site
+ * carries the park's name, its prices and a working booking form; indexed, it
+ * would eventually put a search result in front of a real visitor that takes
+ * their money for a ticket nobody will honour.
+ */
+const IS_PRODUCTION = (process.env.APP_ENV ?? "production") === "production";
+
+/** Adds the noindex header to whatever response the routing rules produced. */
+function marked(response: NextResponse): NextResponse {
+  if (!IS_PRODUCTION) response.headers.set("x-robots-tag", "noindex, nofollow");
+  return response;
+}
+
+/**
  * Hostname only, never host:port. Render terminates TLS and forwards the
  * request to the app on an internal port, so the Host header can arrive as
  * `staff.example.com:10000`; comparing with the port attached would classify
@@ -85,10 +102,10 @@ function matches(pathname: string, prefixes: string[]): boolean {
 }
 
 export function proxy(request: NextRequest) {
-  if (!STAFF_HOST) return NextResponse.next();
+  if (!STAFF_HOST) return marked(NextResponse.next());
 
   const { pathname } = request.nextUrl;
-  if (matches(pathname, NEUTRAL_PREFIXES)) return NextResponse.next();
+  if (matches(pathname, NEUTRAL_PREFIXES)) return marked(NextResponse.next());
 
   const onStaffHost = hostnameOf(request) === STAFF_HOST;
 
@@ -96,14 +113,14 @@ export function proxy(request: NextRequest) {
   // rewrite (not a redirect) keeps the address bar on the domain the person
   // typed, while `/` on the public host still serves the customer home.
   if (onStaffHost && pathname === "/") {
-    return NextResponse.rewrite(new URL("/staff", request.url));
+    return marked(NextResponse.rewrite(new URL("/staff", request.url)));
   }
 
-  if (onStaffHost === matches(pathname, STAFF_PREFIXES)) return NextResponse.next();
+  if (onStaffHost === matches(pathname, STAFF_PREFIXES)) return marked(NextResponse.next());
 
   // Rewriting to a path with no route renders `app/not-found.tsx` with a 404,
   // which is what a human typing the wrong hostname should see.
-  return NextResponse.rewrite(new URL("/__wrong-host", request.url));
+  return marked(NextResponse.rewrite(new URL("/__wrong-host", request.url)));
 }
 
 export const config = {

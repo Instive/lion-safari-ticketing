@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { db } from "@/db";
 import { rateCategories } from "@/db/schema";
+import { isTestEnvironment } from "@/components/staff/env-banner";
 import { requirePageStaff } from "@/lib/auth/guards";
 import { MAX_VISITORS_PER_BOOKING } from "@/domain/booking/pricing";
 import { dayEndSummary, recentCounterSales } from "@/domain/reports/counter";
@@ -90,6 +91,7 @@ export default async function CounterPage() {
         maxVisitors={MAX_VISITORS_PER_BOOKING}
         rates={rates}
         staffId={staff.id}
+        isTest={isTestEnvironment()}
         idempotencyKey={randomUUID()}
       />
 

@@ -13,6 +13,7 @@ import { boardingEvents, bookings, tickets } from "@/db/schema";
 import { confirmBoarding, validateToken } from "@/domain/boarding/confirm";
 import { createCounterBooking } from "@/domain/booking/create";
 import type { Actor } from "@/domain/audit";
+import { assertNotProduction } from "./lib/guard";
 
 const actor: Actor = { type: "SYSTEM", id: "verify-script" };
 
@@ -24,6 +25,7 @@ function check(label: string, condition: boolean, detail = "") {
 }
 
 async function main() {
+  assertNotProduction("run the domain checks");
   console.log("\n1. Double-submitted counter booking creates ONE booking and ONE ticket");
   const key = `verify-${randomUUID()}`;
   const first = await createCounterBooking({

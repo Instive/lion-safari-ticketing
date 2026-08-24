@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 
 import { env, paymentsConfigured } from "@/lib/env";
 import { pool } from "@/db";
+import { assertNotProduction } from "./lib/guard";
 
 const PLACEHOLDERS = [/^$/, /TEST_APP_ID/i, /test_secret_key/i, /replace|changeme|dummy/i];
 
@@ -23,6 +24,7 @@ function line(ok: boolean, text: string) {
 }
 
 async function main() {
+  assertNotProduction("run the Cashfree preflight");
   console.log(`\nCashfree preflight (${env.CASHFREE_ENV})\n`);
 
   let blocked = false;

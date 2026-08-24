@@ -35,6 +35,12 @@ type Props = {
   /** Recorded against a sale made offline, so a shift still has an owner. */
   staffId: string;
   /**
+   * Whether this deployment marks its tickets as tests. Read from APP_ENV by
+   * the page (a Server Component) and passed down, because `@/lib/env` must
+   * never be imported from the browser.
+   */
+  isTest: boolean;
+  /**
    * Minted on the server when this screen was rendered. A double-tapped
    * "Cash received" sends the same key twice and yields one booking; starting
    * a new sale renders a new screen and therefore a new key.
@@ -212,6 +218,7 @@ export function CounterForm({
   maxVisitors,
   rates,
   staffId,
+  isTest,
   idempotencyKey,
 }: Props) {
   const [state, formAction] = useActionState<CashSaleState, FormData>(createCashSaleAction, {});
@@ -612,6 +619,7 @@ export function CounterForm({
       {offlineTicket ? (
         <OfflineTicket
           ticket={offlineTicket}
+          isTest={isTest}
           onDone={() => {
             setOfflineTicket(null);
             setCountText("1");

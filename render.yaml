@@ -23,10 +23,19 @@ databases:
     region: singapore
     postgresMajorVersion: "16"
 
+  # The dev stack's database. Free, and therefore deleted ~30 days after
+  # creation — which is fine, because everything in it is reproducible with
+  # db:migrate, db:seed and db:seed:demo.
+  - name: lion-safari-db-dev
+    plan: free
+    region: singapore
+    postgresMajorVersion: "16"
+
 services:
   - type: web
     name: lion-safari-web
     runtime: node
+    branch: main
     # Free tier: sleeps after 15 minutes idle, ~1 min cold start on the next
     # request. Fine for internal testing; upgrade to `starter` before sending
     # real customers here.
@@ -46,6 +55,10 @@ services:
           name: lion-safari-db
           property: connectionString
       - key: NODE_ENV
+        value: production
+      # Marks this as the real park. Everything under scripts/ refuses to run
+      # against an environment that says this, and the ticket prints clean.
+      - key: APP_ENV
         value: production
       # The PUBLIC, customer-facing origin. Set this to the Render URL Render
       # assigns on first deploy (or your custom domain), then redeploy —
@@ -103,6 +116,7 @@ services:
   - type: worker
     name: lion-safari-worker
     runtime: node
+    branch: main
     plan: free
     region: singapore
     # No `next build` needed — the worker runs worker.ts directly through tsx
@@ -115,6 +129,10 @@ services:
           name: lion-safari-db
           property: connectionString
       - key: NODE_ENV
+        value: production
+      # Marks this as the real park. Everything under scripts/ refuses to run
+      # against an environment that says this, and the ticket prints clean.
+      - key: APP_ENV
         value: production
       # Must match the web service's APP_BASE_URL: the worker builds the
       # "View your ticket" link in the ticket email from it. Note Render does not
@@ -156,4 +174,118 @@ services:
       # Recipients of the nightly bookings CSV (comma-separated). The worker
       # sends it; the web service reads it only to show who it goes to.
       - key: REPORT_EMAIL_TO
+        sync: false
+
+# ---------------------------------------------------------------------------
+# Dev stack — the same app, on the `dev` branch, with its own database.
+#
+# Exists so a change can be sold, scanned, reprinted and reported on by a real
+# person before it reaches the counter. Everything here is on Render's free
+# plans, which costs nothing and comes with two consequences worth knowing
+# rather than discovering:
+#
+#   - The free database is deleted about 30 days after it is created. Dev data
+#     is disposable by design: recreate it, then run db:migrate, db:seed and
+#     db:seed:demo. (If Render will not give you a second free database, point
+#     DATABASE_URL at a free Neon project instead — nothing else changes.)
+#   - Free web services sleep after 15 minutes idle and take about a minute to
+#     wake. Tell whoever is testing, or they will report the first page load as
+#     a bug.
+#
+# Promotion to production is a pull request from `dev` to `main`. Merging it is
+# the deploy: Render rebuilds the production services and db:migrate:prod runs
+# at boot.
+# ---------------------------------------------------------------------------
+
+  - type: web
+    name: lion-safari-web-dev
+    runtime: node
+    plan: free
+    region: singapore
+    branch: dev
+    buildCommand: npm ci && npm run build
+    startCommand: npm run db:migrate:prod && npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lion-safari-db-dev
+          property: connectionString
+      # NODE_ENV really is production here: this is a genuine HTTPS deployment
+      # and needs secure session cookies and a registered service worker. What
+      # makes it dev is APP_ENV, which is a separate question — see src/lib/env.ts.
+      - key: NODE_ENV
+        value: production
+      # Turns on the "test system" banner, prints TEST TICKET on every ticket,
+      # sends X-Robots-Tag: noindex, and lets the seed and verify scripts run.
+      - key: APP_ENV
+        value: dev
+      - key: APP_BASE_URL
+        sync: false
+      - key: STAFF_BASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: TICKET_PRICE_PAISE
+        value: "7500"
+      - key: CONVENIENCE_FEE_PAISE
+        value: "2000"
+      - key: APP_TIMEZONE
+        value: Asia/Kolkata
+      - key: SYNC_STALE_THRESHOLD_SECONDS
+        value: "300"
+      # Low, so a test booking confirms in about a minute without a tunnel.
+      - key: RECONCILE_MIN_AGE_MINUTES
+        value: "1"
+      # Sandbox only. Never put production payment credentials on this service.
+      - key: CASHFREE_ENV
+        value: SANDBOX
+      - key: CASHFREE_APP_ID
+        sync: false
+      - key: CASHFREE_SECRET_KEY
+        sync: false
+      - key: CASHFREE_WEBHOOK_SECRET
+        sync: false
+      # RESEND_API_KEY and REPORT_EMAIL_TO are deliberately absent. Mail and the
+      # nightly report already no-op without credentials, which is exactly what
+      # a test environment wants: no email to a real address from a rehearsal.
+
+  - type: worker
+    name: lion-safari-worker-dev
+    runtime: node
+    plan: free
+    region: singapore
+    branch: dev
+    buildCommand: npm ci
+    startCommand: npm run worker:prod
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: lion-safari-db-dev
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: APP_ENV
+        value: dev
+      - key: APP_BASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: TICKET_PRICE_PAISE
+        value: "7500"
+      - key: CONVENIENCE_FEE_PAISE
+        value: "2000"
+      - key: APP_TIMEZONE
+        value: Asia/Kolkata
+      - key: SYNC_STALE_THRESHOLD_SECONDS
+        value: "300"
+      - key: RECONCILE_MIN_AGE_MINUTES
+        value: "1"
+      - key: CASHFREE_ENV
+        value: SANDBOX
+      - key: CASHFREE_APP_ID
+        sync: false
+      - key: CASHFREE_SECRET_KEY
+        sync: false
+      - key: CASHFREE_WEBHOOK_SECRET
         sync: false

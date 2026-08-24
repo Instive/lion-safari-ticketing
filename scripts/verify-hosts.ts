@@ -13,10 +13,12 @@
  *
  * Usage: npm run verify:hosts   (dev server must be running)
  */
+import { readFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 
 import { env } from "@/lib/env";
+import { assertNotProduction } from "./lib/guard";
 
 const ORIGIN = env.APP_BASE_URL;
 const PUBLIC_HOST = new URL(env.APP_BASE_URL).host;
@@ -69,7 +71,42 @@ const STAFF_PATHS = ["/login", "/staff", "/counter", "/admin", "/scanner"];
 // the public one, the staff launcher on the staff one — and is checked on its own.
 const PUBLIC_PATHS = ["/book", "/ticket"];
 
+/** Like `visit`, but keeps the body and headers — the marking checks need both. */
+function fetchFull(
+  host: string,
+  path: string,
+): Promise<{ status: number; body: string; headers: Record<string, string | string[] | undefined> }> {
+  const target = new URL(path, ORIGIN);
+  const secure = target.protocol === "https:";
+  const send = secure ? httpsRequest : httpRequest;
+
+  return new Promise((resolve, reject) => {
+    const req = send(
+      {
+        protocol: target.protocol,
+        hostname: target.hostname,
+        port: target.port || (secure ? 443 : 80),
+        path: target.pathname + target.search,
+        method: "GET",
+        headers: { host },
+        ...(secure ? { servername: host.split(":")[0] } : {}),
+      },
+      (res) => {
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => (body += chunk));
+        res.on("end", () =>
+          resolve({ status: res.statusCode ?? 0, body, headers: res.headers }),
+        );
+      },
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
+
 async function main() {
+  assertNotProduction("run the host-split checks");
   if (!STAFF_HOST) {
     console.log("STAFF_BASE_URL is not set — single-host mode.\n");
     console.log("1. Every path answers on the one host");
@@ -177,6 +214,45 @@ async function main() {
   // confirmations, so this is the check that matters most in this file.
   const webhook = await visit(PUBLIC_HOST, "/api/payments/webhook/cashfree");
   check("Cashfree webhook is reachable on the public host", webhook !== 404, `${webhook}`);
+  // ---------------------------------------------------------------------
+  console.log("\nA non-production deployment says so, everywhere it can");
+  // The dev site exists so staff can rehearse on it, which means someone will
+  // eventually take a sale on it and hand over a ticket. Everything else about
+  // that flow is identical to production on purpose — these markings are the
+  // only thing distinguishing a rehearsal from a guest paying for nothing.
+  const nonProd = env.APP_ENV !== "production";
+  console.log(`  (APP_ENV=${env.APP_ENV})`);
+
+  const login = await fetchFull(STAFF_HOST ?? PUBLIC_HOST, "/login");
+  const marked = login.body.includes("not valid for entry");
+  check(
+    nonProd ? "the sign-in screen carries the test banner" : "production shows no test banner",
+    marked === nonProd,
+  );
+
+  const publicHome = await fetchFull(PUBLIC_HOST, "/");
+  check(
+    nonProd
+      ? "so does the public site, where a real visitor could land"
+      : "and the public site stays clean",
+    publicHome.body.includes("not valid for entry") === nonProd,
+  );
+
+  const robots = String(login.headers["x-robots-tag"] ?? "");
+  check(
+    nonProd ? "and it is served noindex" : "production is not marked noindex",
+    robots.includes("noindex") === nonProd,
+    robots || "(no header)",
+  );
+
+  // Static, and deliberately so: the mark on the ticket has to survive PRINTING,
+  // and the easiest future mistake is tidying it into `no-print` to match the
+  // status badge directly below it. Screen-only, it would protect nobody — the
+  // paper is what walks to the gate.
+  const card = readFileSync("src/components/ticket-card.tsx", "utf8");
+  const markup = card.slice(card.indexOf("ticket.isTest"), card.indexOf("Test ticket"));
+  check("the ticket's test mark is not screen-only", !markup.includes("no-print"));
+
   console.log(
     failures === 0
       ? "\nHost split held on every check.\n"

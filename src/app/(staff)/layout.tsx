@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { BrandMark } from "@/components/staff/brand-mark";
+import { EnvBanner } from "@/components/staff/env-banner";
 import { SignOutButton } from "@/components/staff/sign-out-button";
 import { StaffNav } from "@/components/staff/staff-nav";
 import { getSessionStaff } from "@/lib/auth/session";
@@ -12,6 +13,7 @@ export default async function StaffLayout({ children }: LayoutProps<"/">) {
 
   return (
     <>
+      <EnvBanner />
       <header className="no-print border-b border-line bg-surface">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-4">

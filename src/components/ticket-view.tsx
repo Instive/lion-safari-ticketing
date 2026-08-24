@@ -1,3 +1,4 @@
+import { isTestEnvironment } from "@/components/staff/env-banner";
 import { renderQrDataUrl } from "@/lib/qr";
 import { businessDate, formatClockTime, formatDateTime, formatVisitDate } from "@/lib/time";
 import type { TicketStatus } from "@/db/schema";
@@ -45,6 +46,7 @@ export async function TicketView({ ticket }: { ticket: TicketViewData }) {
         issuedLabel: formatDateTime(ticket.issuedAt),
         issuedTimeLabel: issuedOnVisitDay ? formatClockTime(ticket.issuedAt) : null,
         customerName: ticket.customerName,
+        isTest: isTestEnvironment(),
       }}
       qrDataUrl={qr}
     />
