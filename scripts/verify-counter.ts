@@ -15,10 +15,12 @@ import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 
 import { db, pool } from "@/db";
-import { bookings, staffSessions, staffUsers, tickets } from "@/db/schema";
+import { bookings, devices, staffSessions, staffUsers, tickets } from "@/db/schema";
 import { confirmBoarding } from "@/domain/boarding/confirm";
 import { createCounterBooking } from "@/domain/booking/create";
 import { cancelBooking } from "@/domain/booking/refund";
+import { activateReservedBooking, allocateBook, loadBook } from "@/domain/booking/reserve";
+import { generateApiKey, sha256 } from "@/lib/codes";
 import { env, staffBaseUrl } from "@/lib/env";
 import { formatPaise } from "@/lib/money";
 import { businessDate, formatDateTime } from "@/lib/time";
@@ -288,6 +290,64 @@ async function main() {
       !shiftPage.body.includes(formatPaise(cashIncludingVoided)),
     formatPaise(cashIncludingVoided),
   );
+
+  // ---------------------------------------------------------------------
+  console.log("\n11. A sale made during an outage appears in the recent-sales panel");
+  // The blank is minted in advance, so its created_at is the moment the book was
+  // allocated — up to BOOK_HORIZON_DAYS before anyone pays for it. Backdating it
+  // reproduces that faithfully. Ordering the panel by created_at therefore sorted
+  // every offline sale behind every online one and dropped it off the end, so the
+  // sale staff had most reason to doubt was the only one they could not see.
+  const [offlineTill] = await db
+    .insert(devices)
+    .values({
+      name: `Verify Counter Till ${Date.now()}`,
+      type: "COUNTER",
+      apiKeyHash: sha256(generateApiKey()),
+    })
+    .returning();
+
+  await allocateBook({
+    deviceId: offlineTill!.id,
+    visitDate: businessDate(),
+    denominations: { 2: 1 },
+    actor: { type: "STAFF", id: counter.staffId, name: "Counter Staff" },
+  });
+  const [blank] = await loadBook(offlineTill!.id, [businessDate()]);
+  check("a blank is available to sell offline", Boolean(blank));
+
+  const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+  await db
+    .update(bookings)
+    .set({ createdAt: twoDaysAgo })
+    .where(eq(bookings.id, blank!.bookingId));
+
+  const offlineSale = await activateReservedBooking({
+    bookingId: blank!.bookingId,
+    deviceId: offlineTill!.id,
+    createdByStaffId: counter.staffId,
+    soldOfflineAt: new Date().toISOString(),
+    actor: { type: "STAFF", id: counter.staffId, name: "Counter Staff" },
+  });
+  check("the offline sale reconciled", offlineSale.booking.status === "CASH_CONFIRMED");
+
+  const panel = await get("/counter", counter.cookie);
+  check("responds 200", panel.status === 200, `got ${panel.status}`);
+  check(
+    "the reconciled offline sale is listed",
+    panel.body.includes(offlineSale.booking.bookingCode),
+    offlineSale.booking.bookingCode,
+  );
+  // Sold minutes ago against a blank minted two days ago: ordering by when the
+  // cash was taken puts it above the online sale, ordering by creation buries it.
+  const offlineAt = panel.body.indexOf(offlineSale.booking.bookingCode);
+  const onlineAt = panel.body.indexOf(sale.booking.bookingCode);
+  check(
+    "it is ordered by when the cash was taken, not when the blank was minted",
+    offlineAt !== -1 && onlineAt !== -1 && offlineAt < onlineAt,
+    `offline@${offlineAt} online@${onlineAt}`,
+  );
+  check("and is labelled as sold offline", panel.body.includes("offline"));
 
   console.log(
     failures === 0

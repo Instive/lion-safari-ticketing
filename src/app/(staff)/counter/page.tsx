@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, count, desc, eq, sum } from "drizzle-orm";
+import { and, asc, count, eq, sum } from "drizzle-orm";
 import Link from "next/link";
 
 import { db } from "@/db";
 import { bookings, rateCategories } from "@/db/schema";
 import { requirePageStaff } from "@/lib/auth/guards";
 import { MAX_VISITORS_PER_BOOKING } from "@/domain/booking/pricing";
+import { recentCounterSales } from "@/domain/reports/counter";
 import { env } from "@/lib/env";
 import { formatPaise } from "@/lib/money";
 import { businessDate, formatLocalTime, formatVisitDate } from "@/lib/time";
@@ -39,19 +40,10 @@ export default async function CounterPage() {
 
     // The fast, reliable way to answer "did my last sale actually go through" —
     // without it, an unsure staff member's only recourse is guessing or a
-    // separate lookup search.
-    db
-      .select({
-        bookingCode: bookings.bookingCode,
-        visitorCount: bookings.visitorCount,
-        amountTotal: bookings.amountTotal,
-        status: bookings.status,
-        createdAt: bookings.createdAt,
-      })
-      .from(bookings)
-      .where(mySalesToday)
-      .orderBy(desc(bookings.createdAt))
-      .limit(5),
+    // separate lookup search. Ordered by when the cash was taken, so a sale made
+    // during an outage appears in its true place once it reconciles rather than
+    // back at the moment its blank was minted.
+    recentCounterSales(staff.id, today),
 
     // Concession rates the counter may sell at. Only the name and price cross
     // to the browser; the price that is actually charged is re-read server-side
@@ -136,6 +128,13 @@ export default async function CounterPage() {
                             {sale.status.toLowerCase()}
                           </span>
                         ) : null}
+                        {/* Says both "this reconciled" and "this time came from
+                            the till's clock, not the server's". */}
+                        {sale.soldOffline ? (
+                          <span className="text-muted rounded bg-line/50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+                            offline
+                          </span>
+                        ) : null}
                       </span>
                       <span className="text-muted block">
                         {sale.visitorCount} visitor{sale.visitorCount === 1 ? "" : "s"} ·{" "}
@@ -143,7 +142,7 @@ export default async function CounterPage() {
                       </span>
                     </span>
                     <span className="text-muted shrink-0 text-right text-xs">
-                      {formatLocalTime(sale.createdAt)}
+                      {formatLocalTime(sale.soldAt)}
                       <span className="mt-0.5 block text-brand">Reprint →</span>
                     </span>
                   </Link>
