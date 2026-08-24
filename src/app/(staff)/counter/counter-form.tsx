@@ -138,7 +138,7 @@ function ConfirmButtons({
         <TenderButton
           tender="UPI"
           label="UPI received"
-          tone="bg-brand"
+          tone="bg-upi"
           disabled={pending || !ready}
           submitting={submitting === "UPI"}
         />
@@ -666,23 +666,26 @@ function OfflineConfirmButtons({
         <span className="text-2xl font-bold tabular-nums">{total}</span>
       </div>
 
+      {/*
+        The same two colours as online, deliberately: staff should learn one
+        mapping of colour to tender, not two. Being offline is said in words on
+        each button instead — alongside the banner above the form and the
+        "sold offline" note on the ticket that follows, which are the signals
+        that actually carry that state.
+      */}
       <div className="grid grid-cols-2 gap-2.5">
-        <button
-          type="button"
+        <OfflineTenderButton
+          label="Cash received"
+          tone="bg-ok"
           disabled={!ready || working}
           onClick={() => sell("CASH")}
-          className="flex min-h-[4.5rem] items-center justify-center rounded-xl bg-accent px-3 py-4 text-base font-bold text-white transition-colors hover:brightness-95 disabled:opacity-60"
-        >
-          Cash received
-        </button>
-        <button
-          type="button"
+        />
+        <OfflineTenderButton
+          label="UPI received"
+          tone="bg-upi"
           disabled={!ready || working}
           onClick={() => sell("UPI")}
-          className="flex min-h-[4.5rem] items-center justify-center rounded-xl border-2 border-accent px-3 py-4 text-base font-bold text-accent transition-colors hover:bg-accent hover:text-white disabled:opacity-60"
-        >
-          UPI received
-        </button>
+        />
       </div>
     </>
   );
@@ -711,6 +714,32 @@ function RateChip({
       <span className="block text-sm font-semibold">{title}</span>
       <span className={`block text-xs tabular-nums ${selected ? "text-white/80" : "text-muted"}`}>
         {price}
+      </span>
+    </button>
+  );
+}
+
+function OfflineTenderButton({
+  label,
+  tone,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  tone: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`flex min-h-[4.5rem] flex-col items-center justify-center gap-1 rounded-xl px-3 py-4 text-white transition-colors hover:brightness-95 disabled:opacity-60 ${tone}`}
+    >
+      <span className="text-base font-bold leading-tight">{label}</span>
+      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/85">
+        Offline
       </span>
     </button>
   );

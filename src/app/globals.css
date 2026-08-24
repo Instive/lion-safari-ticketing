@@ -21,6 +21,15 @@
   --accent: #b8862c;
   --ok: #15803d;
   --danger: #b91c1c;
+  /*
+   * The counter's two tenders sit side by side and must never be taken for one
+   * another at a glance. Cash is --ok, which cannot move (it is the scanner's
+   * tested pass colour), so this is chosen for distance from green rather than
+   * to match the brand — the brand green would have put two greens next to each
+   * other. Deep blue is also what payment apps here already use, and it carries
+   * white text at 6.7:1.
+   */
+  --upi: #1d4ed8;
 
   /* Public site only, from here down. */
   --zoo-cream: #f5eeda;
@@ -41,6 +50,7 @@
   --color-accent: var(--accent);
   --color-ok: var(--ok);
   --color-danger: var(--danger);
+  --color-upi: var(--upi);
   --color-zoo-cream: var(--zoo-cream);
   --color-zoo-cream-strong: var(--zoo-cream-strong);
   --color-zoo-ink: var(--zoo-ink);

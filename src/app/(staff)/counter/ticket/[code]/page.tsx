@@ -73,26 +73,54 @@ export default async function CounterTicketPage({
           };
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 py-6">
+    /*
+      `print:block print:min-h-0` matters more than it looks: the full-height
+      flex column below is what keeps the actions pinned to the bottom of the
+      screen, and left in place at print time it would pad an 80mm thermal roll
+      out to a viewport's worth of blank paper on every single ticket.
+    */
+    <main className="mx-auto flex min-h-dvh w-full max-w-4xl flex-col px-4 py-6 print:block print:min-h-0">
       <ClearDraftSaleKey />
-      <div className={`no-print mb-4 rounded-xl border px-4 py-3 ${banner.tone}`}>
-        <p className="font-semibold">{banner.title}</p>
-        <p className="text-muted text-sm">{banner.note}</p>
+
+      {/*
+        Wide screens put the status beside the ticket rather than above it. A
+        ticket is a tall, narrow thing; stacked, it pushed the status off the
+        top of a counter display the moment staff scrolled to check the QR.
+
+        Auto-placement does the reordering on its own: at `lg` the three
+        children fall into (status, ticket, cancel) with the ticket spanning
+        both rows, and below `lg` the same DOM order stacks as status → ticket
+        → cancel — which is also the order that keeps a destructive action
+        below the thing it destroys.
+      */}
+      <div className="flex flex-1 flex-col gap-5 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start lg:gap-8">
+        <div className={`no-print rounded-xl border px-4 py-3 ${banner.tone}`}>
+          <p className="font-semibold">{banner.title}</p>
+          <p className="text-muted text-sm">{banner.note}</p>
+        </div>
+
+        <div className="mx-auto w-full max-w-md lg:row-span-2">
+          <TicketView ticket={row} />
+        </div>
+
+        <div className="no-print">
+          {canVoid ? <VoidSaleForm bookingCode={row.bookingCode} /> : null}
+        </div>
       </div>
 
-      <TicketView ticket={row} />
-
-      <div className="no-print mt-5 grid grid-cols-2 gap-3">
-        <PrintButton />
-        <Link
-          href="/counter"
-          className="touch-target grid place-items-center rounded-xl bg-brand px-4 font-semibold text-white hover:bg-brand-strong"
-        >
-          Next sale
-        </Link>
+      {/* Pinned like the tender buttons on the sale screen: whatever staff have
+          scrolled to, the way onward is under their thumb. */}
+      <div className="no-print sticky bottom-0 z-10 -mx-4 mt-6 border-t border-line bg-background/95 px-4 pb-4 pt-3 backdrop-blur">
+        <div className="mx-auto grid max-w-4xl grid-cols-2 gap-3">
+          <PrintButton />
+          <Link
+            href="/counter"
+            className="grid min-h-14 place-items-center rounded-xl bg-brand px-4 font-semibold text-white hover:bg-brand-strong"
+          >
+            Next sale
+          </Link>
+        </div>
       </div>
-
-      {canVoid ? <VoidSaleForm bookingCode={row.bookingCode} /> : null}
     </main>
   );
 }
