@@ -2,6 +2,7 @@ import { and, eq, gte, isNotNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { bookings, devices, tickets } from "@/db/schema";
+import { env } from "@/lib/env";
 import { businessDate } from "@/lib/time";
 
 /**
@@ -85,6 +86,69 @@ export async function bookDiscrepancies(fromDate: string, toDate: string): Promi
       ),
     )
     .orderBy(tickets.usedAt)
+    .limit(200);
+
+  return rows;
+}
+
+export type MisdatedSale = {
+  bookingId: string;
+  bookingCode: string;
+  deviceName: string | null;
+  visitDate: string;
+  soldOnDay: string;
+  visitorCount: number;
+  amountTotal: number;
+  boardedAt: Date | null;
+};
+
+/**
+ * Offline sales where the ticket's visit date is not the day the till says it
+ * sold it.
+ *
+ * A counter ticket is admissible on exactly one day, so every row here is a
+ * guest who paid at the counter and was then turned away at the gate for a
+ * WRONG_DATE — or would have been. The cause is a till selling from a book that
+ * had rolled over, which `src/lib/counter/park-day.ts` now prevents at source;
+ * this query is the check that it stayed prevented, and the way a refund gets
+ * found if it ever is not.
+ *
+ * Computed from columns already on the row rather than a stored flag, so it is
+ * true of historical sales too — including any made before the till was fixed.
+ *
+ * The comparison is done in the park's timezone for the same reason
+ * `businessDate` exists: a sale at 00:30 IST belongs to that IST day, and
+ * comparing against a UTC date would report every late-evening sale as misdated.
+ */
+export async function misdatedOfflineSales(
+  fromDate: string,
+  toDate: string,
+): Promise<MisdatedSale[]> {
+  const soldDay = sql<string>`(${bookings.soldOfflineAt} AT TIME ZONE ${env.APP_TIMEZONE})::date`;
+
+  const rows = await db
+    .select({
+      bookingId: bookings.id,
+      bookingCode: bookings.bookingCode,
+      deviceName: devices.name,
+      visitDate: bookings.visitDate,
+      soldOnDay: sql<string>`${soldDay}::text`,
+      visitorCount: bookings.visitorCount,
+      amountTotal: bookings.amountTotal,
+      boardedAt: tickets.usedAt,
+    })
+    .from(bookings)
+    .innerJoin(tickets, eq(tickets.bookingId, bookings.id))
+    .leftJoin(devices, eq(devices.id, bookings.reservedDeviceId))
+    .where(
+      and(
+        isNotNull(bookings.soldOfflineAt),
+        sql`${bookings.visitDate} <> ${soldDay}`,
+        gte(bookings.visitDate, fromDate),
+        sql`${bookings.visitDate} <= ${toDate}::date`,
+      ),
+    )
+    .orderBy(bookings.visitDate)
     .limit(200);
 
   return rows;

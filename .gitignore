@@ -40,3 +40,22 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Operational scripts that act directly on a LIVE database, kept out of the
+# repository on purpose.
+#
+# Everything else under scripts/ calls assertNotProduction and refuses to run
+# against the real park. These two are the deliberate exceptions — one wipes
+# trading data, the other mints an administrator — so they carry their own
+# guards instead (CONFIRM_DATABASE, I_HAVE_A_BACKUP, a typed confirmation).
+# Not distributing them means a fresh clone cannot run either one by accident,
+# and neither shows up in a diff for someone to copy the pattern from.
+#
+# The trade: git is not backing these up. If you need them on another machine,
+# copy them across deliberately rather than expecting a clone to carry them.
+scripts/reset-production-data.ts
+scripts/create-admin.ts
+
+# Database dumps taken before a reset — these hold real customer data.
+*.dump
+*.sql.gz

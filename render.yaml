@@ -16,10 +16,13 @@
 
 databases:
   - name: lion-safari-db
-    # Free tier for initial testing only: expires 30 days after creation (14-day
-    # grace period, then Render deletes the database and all its data). Upgrade
-    # this to a paid plan before any real Cashfree payment runs against it.
-    plan: free
+    # Paid plan: no 30-day expiry, and Render takes daily backups. Both of those
+    # are why real Cashfree payments may run against this one.
+    #
+    # Backups are Render's, not ours, and they are point-in-time rather than a
+    # file you hold. Before anything destructive — scripts/reset-production-data.ts
+    # in particular — still take your own `pg_dump`.
+    plan: basic_256mb
     region: singapore
     postgresMajorVersion: "16"
 
@@ -36,18 +39,23 @@ services:
     name: lion-safari-web
     runtime: node
     branch: main
-    # Free tier: sleeps after 15 minutes idle, ~1 min cold start on the next
-    # request. Fine for internal testing; upgrade to `starter` before sending
-    # real customers here.
-    plan: free
+    # Paid: the service stays warm, so no cold start on the first guest of the
+    # morning and no 15-minute idle sleep.
+    plan: starter
     region: singapore
     buildCommand: npm ci && npm run build
-    # `preDeployCommand` isn't available on the free plan, so the migration
-    # runs at the front of startCommand instead. `drizzle-kit migrate` only
-    # applies pending migrations and is a no-op once the schema is current, so
-    # this is safe to run on every boot — including every free-tier wake from
-    # sleep — and keeps working unchanged if you upgrade off free tier later.
-    startCommand: npm run db:migrate:prod && npm start
+    # The migration runs as a PRE-DEPLOY step, which the paid plan makes
+    # available and which is strictly better than putting it in startCommand:
+    #
+    #   - it runs ONCE per deploy rather than on every process boot;
+    #   - if it fails, Render aborts the deploy and leaves the CURRENT version
+    #     serving. In startCommand a failure instead takes the service down,
+    #     because `&&` stops `npm start` from ever running.
+    #
+    # That second point is not hypothetical — `drizzle-kit migrate` has been
+    # seen to exit non-zero on this project without printing a reason.
+    preDeployCommand: npm run db:migrate:prod
+    startCommand: npm start
     healthCheckPath: /api/health
     envVars:
       - key: DATABASE_URL
@@ -117,7 +125,20 @@ services:
     name: lion-safari-worker
     runtime: node
     branch: main
-    plan: free
+    # NOT optional, and it cannot be free — Render has no free background-worker
+    # tier, so `plan: free` here was unsatisfiable and this service was simply
+    # never created. Everything in worker.ts was therefore dead in production:
+    #
+    #   - ticket emails were never delivered;
+    #   - a payment whose webhook was lost was never reconciled, so the customer
+    #     stayed PENDING — paid, with no ticket and no path to one;
+    #   - unsold counter blanks never expired, which is the ONLY thing bounding
+    #     a ticket book's exposure to a single day (src/domain/booking/reserve.ts);
+    #   - the nightly reconciliation CSV was never sent.
+    #
+    # If this service is missing from the Render dashboard, that is what is
+    # happening right now.
+    plan: starter
     region: singapore
     # No `next build` needed — the worker runs worker.ts directly through tsx
     # and never touches the Next.js app.
@@ -253,6 +274,12 @@ services:
   - type: worker
     name: lion-safari-worker-dev
     runtime: node
+    # Same trap as the production worker: Render has no free background-worker
+    # tier, so this one does not exist either and the dev stack does NOT
+    # exercise the worker path — reconciliation, ticket email and blank expiry
+    # are all untested there. Left free deliberately rather than fixed, because
+    # a second paid worker is a spend decision, not a technical one. Raise it to
+    # `starter` when a rehearsal needs to cover those paths.
     plan: free
     region: singapore
     branch: dev

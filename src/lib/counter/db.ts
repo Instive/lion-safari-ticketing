@@ -92,6 +92,12 @@ export async function applyBook(blanks: Blank[]): Promise<void> {
   });
 }
 
+/** Every visit date this till still holds blanks for. */
+export async function heldDates(): Promise<Set<string>> {
+  const rows = await db.blanks.toArray();
+  return new Set(rows.map((b) => b.visitDate));
+}
+
 /** How many blanks are left, per group size, for one visit date. */
 export async function stockFor(visitDate: string): Promise<Map<number, number>> {
   const rows = await db.blanks.where("visitDate").equals(visitDate).toArray();

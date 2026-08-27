@@ -4,9 +4,11 @@ import {
   applyBook,
   counterDb,
   getCounterMeta,
+  heldDates,
   setCounterMeta,
   type Blank,
 } from "./db";
+import { resolveParkDay, type SellBlockReason } from "./park-day";
 
 const DEVICE_KEY_STORAGE = "ls_counter_device_key";
 
@@ -62,8 +64,15 @@ function headers(): HeadersInit {
 
 export type CounterSyncState = {
   lastSyncAt: string | null;
+  /**
+   * The park day this till may sell for — NOT simply the day of the last sync.
+   * Null when the till must not sell offline at all; `blocked` says why.
+   * See `./park-day.ts` for how it is resolved and why.
+   */
   visitDate: string | null;
-  /** Blanks left, per group size, for the current park day. */
+  /** Set when offline selling is unsafe. Null when the till can sell. */
+  blocked: SellBlockReason | null;
+  /** Blanks left, per group size, for `visitDate`. */
   stock: Map<number, number>;
   queueDepth: number;
 };
@@ -152,26 +161,36 @@ export async function pushSales(): Promise<void> {
   }
 }
 
-/** Current local state without touching the network — used offline. */
+/**
+ * Current local state without touching the network — used offline.
+ *
+ * `syncedDay` is the day the SERVER just reported, passed in straight after a
+ * sync; otherwise the last one it reported is read back from meta. Either way
+ * it is only the input to `resolveParkDay`, which decides whether this till may
+ * still sell against it — a book that was current yesterday evening is not
+ * current this morning.
+ */
 export async function counterState(
-  visitDate?: string | null,
+  syncedDay?: string | null,
   lastSyncAt?: string | null,
 ): Promise<CounterSyncState> {
   const meta = await getCounterMeta();
-  const day = visitDate ?? meta.visitDate;
+  const resolved = resolveParkDay(syncedDay ?? meta.visitDate, await heldDates());
 
-  const rows = day
-    ? await counterDb.blanks.where("visitDate").equals(day).toArray()
-    : await counterDb.blanks.toArray();
-
+  // Stock is counted for the day that would actually be SOLD, so a blocked or
+  // rolled-over till never shows staff a count it cannot hand out.
   const stock = new Map<number, number>();
-  for (const row of rows) {
-    stock.set(row.visitorCount, (stock.get(row.visitorCount) ?? 0) + 1);
+  if (resolved.day) {
+    const rows = await counterDb.blanks.where("visitDate").equals(resolved.day).toArray();
+    for (const row of rows) {
+      stock.set(row.visitorCount, (stock.get(row.visitorCount) ?? 0) + 1);
+    }
   }
 
   return {
     lastSyncAt: lastSyncAt ?? meta.lastSyncAt,
-    visitDate: day,
+    visitDate: resolved.day,
+    blocked: resolved.blocked,
     stock,
     queueDepth: await counterDb.queue.count(),
   };

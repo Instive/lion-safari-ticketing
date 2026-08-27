@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 
+import { blockMessage } from "@/lib/counter/park-day";
 import { setCounterDeviceKey } from "@/lib/counter/sync-client";
 import { enrolThisTillAction } from "./actions";
 import type { OfflineCounter } from "./use-offline-counter";
@@ -24,6 +25,32 @@ export function OfflineStatus({ counter }: { counter: OfflineCounter }) {
   const totalStock = [...counter.state.stock.values()].reduce((sum, n) => sum + n, 0);
 
   if (!counter.enrolled) return <EnrolmentPrompt counter={counter} />;
+
+  /*
+   * Said before anything else, and said while the till is still ONLINE if that
+   * is when we notice.
+   *
+   * A counter ticket is admissible on exactly one day, so a till whose book has
+   * rolled over — or whose clock cannot be reconciled with its last sync —
+   * would print tickets the gate refuses. Staff would take cash for them. This
+   * is the moment to say so, not after a queue has formed and the link is gone.
+   */
+  if (counter.ready && counter.state.blocked) {
+    return (
+      <section
+        role="alert"
+        className="no-print rounded-xl border border-danger/40 bg-danger/5 p-3 text-sm"
+      >
+        <p className="font-semibold text-danger">Offline selling unavailable</p>
+        <p className="text-muted mt-0.5">{blockMessage(counter.state.blocked)}</p>
+        {counter.online ? (
+          <p className="text-muted mt-2 text-xs">
+            Online sales are unaffected — keep selling as normal.
+          </p>
+        ) : null}
+      </section>
+    );
+  }
 
   const outOfStock = counter.ready && totalStock === 0;
 

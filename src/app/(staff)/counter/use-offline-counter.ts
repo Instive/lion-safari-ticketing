@@ -8,6 +8,7 @@ import {
   subscribeOnline,
 } from "@/lib/online-store";
 import { claimBlank, type Blank } from "@/lib/counter/db";
+import { blockMessage, type SellBlockReason } from "@/lib/counter/park-day";
 import {
   clearCounterDeviceKey,
   counterState,
@@ -35,6 +36,16 @@ export type OfflineSaleInput = {
   staffId: string | null;
 };
 
+/**
+ * Why a sale could not be made from the book.
+ *
+ * `OUT_OF_STOCK` is about this group size; every other reason means the till
+ * must not print a dated ticket at all right now (see `lib/counter/park-day`).
+ */
+export type SellOutcome =
+  | { ok: true; blank: Blank; issuedAt: Date }
+  | { ok: false; reason: "OUT_OF_STOCK" | SellBlockReason; message: string };
+
 export type OfflineCounter = {
   online: boolean;
   enrolled: boolean;
@@ -42,13 +53,14 @@ export type OfflineCounter = {
   /** True once the first book has been pulled — until then, selling offline is blind. */
   ready: boolean;
   refresh: () => void;
-  /** Consumes a blank and queues the sale. Null when the book has none that size. */
-  sell: (input: OfflineSaleInput) => Promise<{ blank: Blank; issuedAt: Date } | null>;
+  /** Consumes a blank and queues the sale, or explains why it could not. */
+  sell: (input: OfflineSaleInput) => Promise<SellOutcome>;
 };
 
 const EMPTY_STATE: CounterSyncState = {
   lastSyncAt: null,
   visitDate: null,
+  blocked: null,
   stock: new Map(),
   queueDepth: 0,
 };
@@ -121,10 +133,16 @@ export function useOfflineCounter(): OfflineCounter {
   }, [enrolled, online, sync]);
 
   const sell = useCallback(
-    async (input: OfflineSaleInput) => {
+    async (input: OfflineSaleInput): Promise<SellOutcome> => {
+      // Re-read rather than trusting `state`: this decides what DATE gets
+      // printed on a ticket, and the render it came from may predate a day
+      // rollover that happened while the sale screen sat open.
       const local = await counterState();
       const visitDate = local.visitDate;
-      if (!visitDate) return null;
+      if (!visitDate) {
+        const reason = local.blocked ?? "NO_SYNC";
+        return { ok: false, reason, message: blockMessage(reason) };
+      }
 
       const claimed = await claimBlank(visitDate, input.visitorCount, {
         perVisitorPaise: input.perVisitorPaise,
@@ -140,10 +158,23 @@ export function useOfflineCounter(): OfflineCounter {
         attempts: 0,
       });
 
-      if (!claimed) return null;
+      if (!claimed) {
+        return {
+          ok: false,
+          reason: "OUT_OF_STOCK",
+          message:
+            `No pre-issued ticket left for ${input.visitorCount} visitor` +
+            `${input.visitorCount === 1 ? "" : "s"}. ` +
+            "Split the group across two tickets, or wait for the connection.",
+        };
+      }
 
       setState(await counterState());
-      return { blank: claimed.blank, issuedAt: new Date(claimed.queued.soldOfflineAt) };
+      return {
+        ok: true,
+        blank: claimed.blank,
+        issuedAt: new Date(claimed.queued.soldOfflineAt),
+      };
     },
     [],
   );

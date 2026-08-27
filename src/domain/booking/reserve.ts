@@ -214,6 +214,34 @@ export async function activateReservedBooking(input: ActivateInput): Promise<Act
     const rate = await resolveRate(input.rate, "COUNTER", tx);
     const quote = quoteFor(current.visitorCount, "COUNTER", rate);
 
+    /*
+     * A counter ticket is admissible on exactly one day, so the day a blank is
+     * dated for and the day it was actually sold on must be the same day. When
+     * they are not, the guest was handed a ticket the gate will refuse.
+     *
+     * Recorded, deliberately NOT refused. By the time a sale reaches here the
+     * money is already in the drawer and the guest has already been to the
+     * gate; refusing would delete the only record that the sale happened and
+     * turn a dating fault into an unexplained cash surplus. A late push of a
+     * genuine sale — a till reconnecting after midnight — is also perfectly
+     * legitimate and looks identical from here.
+     *
+     * `soldOfflineAt` is the DEVICE clock and is not trusted for anything else
+     * (rule §6); it is used here only to notice a disagreement and report it,
+     * never to decide validity or price. `misdatedOfflineSales` in
+     * domain/reports/ticket-books.ts is where these surface for a human.
+     */
+    const soldOnDay = input.soldOfflineAt
+      ? businessDate(new Date(input.soldOfflineAt))
+      : businessDate();
+    const misdated = current.visitDate !== soldOnDay;
+    if (misdated) {
+      console.warn(
+        `[counter] misdated offline sale: blank ${current.bookingCode} is for ` +
+          `${current.visitDate} but the till reports selling it on ${soldOnDay}`,
+      );
+    }
+
     await tx
       .update(bookings)
       .set({
@@ -240,6 +268,9 @@ export async function activateReservedBooking(input: ActivateInput): Promise<Act
       rate: rate.label,
       perVisitorPaise: quote.perVisitorPaise,
       amountTotal: quote.amountTotalPaise,
+      visitDate: current.visitDate,
+      soldOnDay,
+      misdated,
     });
 
     return { booking: confirmed ?? current, activated: true };

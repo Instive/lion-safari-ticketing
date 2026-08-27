@@ -345,11 +345,10 @@ export function CounterForm({
       staffId,
     });
 
-    if (!sold) {
-      setOfflineError(
-        `No pre-issued ticket left for ${visitors} visitor${visitors === 1 ? "" : "s"}. ` +
-          "Split the group across two tickets, or wait for the connection.",
-      );
+    if (!sold.ok) {
+      // Covers both "none left this size" and "this till must not date a ticket
+      // right now" — the second is the day-rollover guard in lib/counter/park-day.
+      setOfflineError(sold.message);
       return;
     }
 
@@ -598,15 +597,19 @@ export function CounterForm({
           <OfflineConfirmButtons
             total={total}
             visitors={visitors}
-            ready={ready && counter.enrolled && counter.ready}
+            ready={ready && counter.enrolled && counter.ready && !counter.state.blocked}
             reason={
               !counter.enrolled
                 ? "Offline selling is not set up on this till"
                 : !counter.ready
                   ? "Ticket book not loaded yet"
-                  : !countReady
-                    ? "Enter the visitor count"
-                    : "Finish the special price"
+                  : counter.state.blocked
+                    ? // The banner above carries the detail; this is the one-line
+                      // version that sits beside the disabled tender buttons.
+                      "Ticket book out of date — cannot sell"
+                    : !countReady
+                      ? "Enter the visitor count"
+                      : "Finish the special price"
             }
             onSell={(tender) => void sellOffline(tender)}
           />

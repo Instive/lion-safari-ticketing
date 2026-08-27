@@ -5,6 +5,7 @@ import { formatLocalTime, formatVisitDate } from "@/lib/time";
 import {
   bookDiscrepancies,
   bookStock,
+  misdatedOfflineSales,
   offlineSalesFor,
 } from "@/domain/reports/ticket-books";
 import { formatPaise } from "@/lib/money";
@@ -22,9 +23,10 @@ export default async function AdminBooksPage() {
   const today = businessDate();
   const from = shiftDays(today, -DISCREPANCY_WINDOW_DAYS);
 
-  const [stock, discrepancies, offline] = await Promise.all([
+  const [stock, discrepancies, misdated, offline] = await Promise.all([
     bookStock(today),
     bookDiscrepancies(from, today),
+    misdatedOfflineSales(from, today),
     offlineSalesFor(from, today),
   ]);
 
@@ -76,6 +78,44 @@ export default async function AdminBooksPage() {
           matching sale.
         </p>
       )}
+
+      {/*
+        A ticket is only admissible on the day it is dated for, so a sale made
+        on a different day than the ticket it handed over is a guest who was
+        turned away at the gate having already paid. The till is supposed to
+        make this impossible (src/lib/counter/park-day.ts) — this is how anyone
+        would find out if it ever stopped doing so.
+      */}
+      {misdated.length > 0 ? (
+        <section className="mb-5 rounded-xl border border-danger/40 bg-danger/5 p-4">
+          <h2 className="font-semibold text-danger">
+            {misdated.length} ticket{misdated.length === 1 ? "" : "s"} sold for the wrong day
+          </h2>
+          <p className="text-muted mt-1 text-sm">
+            These were sold on one day but dated for another, so the gate would have refused them.
+            Each is likely owed a refund or a replacement ticket. Check the till&rsquo;s date and
+            that it is syncing.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {misdated.map((row) => (
+              <li
+                key={row.bookingId}
+                className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm"
+              >
+                <span className="font-mono font-semibold tracking-wider">{row.bookingCode}</span>
+                <span className="text-muted">
+                  sold {formatVisitDate(row.soldOnDay)} · dated{" "}
+                  {formatVisitDate(row.visitDate)} · {row.deviceName ?? "unknown till"}
+                </span>
+                <span className="text-muted text-xs">
+                  {formatPaise(row.amountTotal)} ·{" "}
+                  {row.boardedAt ? `boarded ${formatLocalTime(row.boardedAt)}` : "never boarded"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="mb-5 rounded-xl border border-line bg-surface p-4">
         <h2 className="text-muted text-sm">Sold while offline · last {DISCREPANCY_WINDOW_DAYS} days</h2>
