@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 
 import { db } from "@/db";
+import { log } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,7 +16,7 @@ export async function GET(): Promise<Response> {
     await db.execute(sql`select 1`);
     return Response.json({ status: "ok" });
   } catch (err) {
-    console.error("[health] database check failed", err);
+    log.error("health", "database check failed", err);
     return Response.json({ status: "unhealthy" }, { status: 503 });
   }
 }
