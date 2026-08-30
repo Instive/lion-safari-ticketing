@@ -66,6 +66,32 @@ const schema = z.object({
    * key: an unconfigured deployment must never fail a job it cannot deliver.
    */
   REPORT_EMAIL_TO: z.string().default(""),
+
+  /**
+   * Run the background jobs INSIDE the web process instead of as a separate
+   * service.
+   *
+   * The separate `lion-safari-worker` service exists for a real reason, stated
+   * at the top of worker.ts: a slow email or an unresponsive payment API can
+   * never delay a web request when it lives in its own process. That is the
+   * right shape at scale, and it is what this defaults to.
+   *
+   * It is also a whole paid instance for a park that sells a few hundred
+   * tickets a day, where the jobs are almost entirely `await`ed network calls
+   * that yield the event loop rather than block it. Setting this to `true` on
+   * the web service and deleting the worker service trades that isolation for
+   * roughly half the hosting bill.
+   *
+   * Only safe because the web plan does not sleep — a free/sleeping instance
+   * would stop reconciling payments the moment traffic stopped, which is
+   * exactly when a lost webhook needs catching. pg-boss locks each job row, so
+   * even if the web service is later scaled to several instances they
+   * cooperate rather than double-send.
+   */
+  RUN_WORKER_IN_WEB: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
 });
 
 export type Env = z.infer<typeof schema>;
