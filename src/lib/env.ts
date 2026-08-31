@@ -144,6 +144,29 @@ export const env: Env = new Proxy({} as Env, {
   },
 });
 
+/**
+ * Which deployment this is, WITHOUT validating everything else.
+ *
+ * The lazy proxy above is all-or-nothing: touching any single property runs the
+ * whole schema, so a component that wants nothing but `APP_ENV` still demands
+ * DATABASE_URL, SESSION_SECRET and APP_BASE_URL be present. That is fine at
+ * request time and wrong at BUILD time — a statically prerendered page renders
+ * during `next build`, where those secrets legitimately do not exist yet. It is
+ * what made a dev deploy fail while prerendering /gallery, with an error naming
+ * APP_BASE_URL for a banner that only ever wanted to know if this is the real
+ * park.
+ *
+ * Reads `process.env` directly and falls back to `production` — the same
+ * default the schema declares, so behaviour is unchanged — which also fails in
+ * the safe direction for the one thing this drives: `EnvBanner` renders nothing
+ * on production, so an unreadable value can only ever hide a warning banner on
+ * a test site, never mark the real system as a test.
+ */
+export function appEnv(): Env["APP_ENV"] {
+  const value = process.env.APP_ENV;
+  return value === "local" || value === "dev" ? value : "production";
+}
+
 /** Online payments cannot be accepted until Cashfree credentials are present. */
 export function paymentsConfigured(): boolean {
   return env.CASHFREE_APP_ID !== "" && env.CASHFREE_SECRET_KEY !== "";

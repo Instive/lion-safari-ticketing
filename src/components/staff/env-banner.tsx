@@ -1,4 +1,4 @@
-import { env } from "@/lib/env";
+import { appEnv } from "@/lib/env";
 
 /**
  * Says, permanently and unmissably, that this is not the real system.
@@ -13,14 +13,18 @@ import { env } from "@/lib/env";
  * comparison and no markup.
  */
 export function EnvBanner() {
-  if (env.APP_ENV === "production") return null;
+  // `appEnv()` rather than `env.APP_ENV`: this renders inside layouts that wrap
+  // statically prerendered pages, and reading the validated env there would
+  // demand production secrets during `next build` (see lib/env.ts).
+  const current = appEnv();
+  if (current === "production") return null;
 
   return (
     <div
       role="status"
       className="no-print bg-danger px-4 py-1.5 text-center text-xs font-bold uppercase tracking-wide text-white"
     >
-      Test system{env.APP_ENV === "local" ? " (local)" : ""} — tickets issued here are not valid
+      Test system{current === "local" ? " (local)" : ""} — tickets issued here are not valid
       for entry
     </div>
   );
@@ -35,5 +39,5 @@ export function EnvBanner() {
  * down as a prop.
  */
 export function isTestEnvironment(): boolean {
-  return env.APP_ENV !== "production";
+  return appEnv() !== "production";
 }
