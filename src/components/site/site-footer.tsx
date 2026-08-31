@@ -1,9 +1,14 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { env } from "@/lib/env";
+import { supportPhone } from "@/lib/env";
 
 export function SiteFooter() {
+  // `supportPhone()` rather than `env.SUPPORT_PHONE`: this footer wraps the
+  // statically prerendered customer pages, and reading the validated env here
+  // would demand production secrets during `next build` (see lib/env.ts).
+  const support = supportPhone();
+
   return (
     <footer className="border-t border-zoo-cream-strong bg-zoo-forest-deep text-zoo-cream">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
@@ -93,9 +98,9 @@ export function SiteFooter() {
             <br />
             Punjab — approx. 17 km from Chandigarh
           </p>
-          {env.SUPPORT_PHONE ? (
+          {support ? (
             <p className="mt-3 text-sm text-zoo-cream/80">
-              Support: <span className="text-zoo-gold-light">{env.SUPPORT_PHONE}</span>
+              Support: <span className="text-zoo-gold-light">{support}</span>
             </p>
           ) : null}
         </div>
