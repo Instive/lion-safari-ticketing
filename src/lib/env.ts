@@ -66,6 +66,32 @@ const schema = z.object({
    * key: an unconfigured deployment must never fail a job it cannot deliver.
    */
   REPORT_EMAIL_TO: z.string().default(""),
+
+  /**
+   * Run the background jobs INSIDE the web process instead of as a separate
+   * service.
+   *
+   * The separate `lion-safari-worker` service exists for a real reason, stated
+   * at the top of worker.ts: a slow email or an unresponsive payment API can
+   * never delay a web request when it lives in its own process. That is the
+   * right shape at scale, and it is what this defaults to.
+   *
+   * It is also a whole paid instance for a park that sells a few hundred
+   * tickets a day, where the jobs are almost entirely `await`ed network calls
+   * that yield the event loop rather than block it. Setting this to `true` on
+   * the web service and deleting the worker service trades that isolation for
+   * roughly half the hosting bill.
+   *
+   * Only safe because the web plan does not sleep — a free/sleeping instance
+   * would stop reconciling payments the moment traffic stopped, which is
+   * exactly when a lost webhook needs catching. pg-boss locks each job row, so
+   * even if the web service is later scaled to several instances they
+   * cooperate rather than double-send.
+   */
+  RUN_WORKER_IN_WEB: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
 });
 
 export type Env = z.infer<typeof schema>;
@@ -117,6 +143,29 @@ export const env: Env = new Proxy({} as Env, {
     return cached[property as keyof Env];
   },
 });
+
+/**
+ * Which deployment this is, WITHOUT validating everything else.
+ *
+ * The lazy proxy above is all-or-nothing: touching any single property runs the
+ * whole schema, so a component that wants nothing but `APP_ENV` still demands
+ * DATABASE_URL, SESSION_SECRET and APP_BASE_URL be present. That is fine at
+ * request time and wrong at BUILD time — a statically prerendered page renders
+ * during `next build`, where those secrets legitimately do not exist yet. It is
+ * what made a dev deploy fail while prerendering /gallery, with an error naming
+ * APP_BASE_URL for a banner that only ever wanted to know if this is the real
+ * park.
+ *
+ * Reads `process.env` directly and falls back to `production` — the same
+ * default the schema declares, so behaviour is unchanged — which also fails in
+ * the safe direction for the one thing this drives: `EnvBanner` renders nothing
+ * on production, so an unreadable value can only ever hide a warning banner on
+ * a test site, never mark the real system as a test.
+ */
+export function appEnv(): Env["APP_ENV"] {
+  const value = process.env.APP_ENV;
+  return value === "local" || value === "dev" ? value : "production";
+}
 
 /** Online payments cannot be accepted until Cashfree credentials are present. */
 export function paymentsConfigured(): boolean {
