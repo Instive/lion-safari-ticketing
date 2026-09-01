@@ -20,7 +20,7 @@
     "verify:all": "npm run verify:guards && npm run verify:domain && npm run verify:webhook && npm run verify:scanner && npm run verify:auth && npm run verify:counter && npm run verify:hosts && npm run verify:reports && npm run verify:offline-counter",
     "verify:cashfree": "tsx --env-file=.env.local scripts/verify-cashfree.ts",
     "worker:prod": "tsx worker.ts",
-    "db:migrate:prod": "drizzle-kit migrate",
+    "db:migrate:prod": "tsx scripts/migrate-prod.ts",
     "verify:counter": "tsx --env-file=.env.local scripts/verify-counter.ts",
     "verify:hosts": "tsx --env-file=.env.local scripts/verify-hosts.ts",
     "verify:reports": "tsx --env-file=.env.local scripts/verify-reports.ts",
