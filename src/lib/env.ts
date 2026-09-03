@@ -56,7 +56,7 @@ const schema = z.object({
   CASHFREE_SECRET_KEY: z.string().default(""),
   CASHFREE_WEBHOOK_SECRET: z.string().default(""),
 
-  RESEND_API_KEY: z.string().default(""),
+  BREVO_API_KEY: z.string().default(""),
   MAIL_FROM: z.string().default("Lion Safari <tickets@example.com>"),
   SUPPORT_PHONE: z.string().default(""),
 

@@ -1,5 +1,4 @@
 import { eq } from "drizzle-orm";
-import QRCode from "qrcode";
 
 import { db } from "@/db";
 import { bookings, tickets } from "@/db/schema";
@@ -50,11 +49,7 @@ export async function deliverTicket(job: DeliverTicketJob): Promise<void> {
   }
 
   const ticketUrl = `${env.APP_BASE_URL}/ticket/${row.bookingCode}`;
-  const qrPng = await QRCode.toBuffer(row.token, {
-    errorCorrectionLevel: "Q",
-    margin: 1,
-    width: 320,
-  });
+  const qrUrl = `${env.APP_BASE_URL}/api/ticket/${row.bookingCode}/qr`;
 
   await sendMail({
     to: row.customerEmail,
@@ -67,14 +62,8 @@ export async function deliverTicket(job: DeliverTicketJob): Promise<void> {
       issuedAt: row.issuedAt,
       customerName: row.customerName,
       ticketUrl,
+      qrUrl,
     }),
-    attachments: [
-      {
-        filename: `lion-safari-${row.bookingCode}.png`,
-        content: qrPng.toString("base64"),
-        contentId: "ticket-qr",
-      },
-    ],
   });
 
   await writeAudit(db, {
@@ -94,6 +83,7 @@ function ticketEmailHtml(t: {
   issuedAt: Date;
   customerName: string | null;
   ticketUrl: string;
+  qrUrl: string;
 }): string {
   return `<!doctype html>
 <html><body style="margin:0;padding:24px;background:#f6f7f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#14201a">
@@ -104,7 +94,9 @@ function ticketEmailHtml(t: {
     <p style="margin:0 0 16px">${t.customerName ? `Hello ${escapeHtml(t.customerName)},` : "Hello,"} your booking is confirmed.</p>
 
     <div style="text-align:center;margin:24px 0">
-      <img src="cid:ticket-qr" alt="Ticket QR code" width="220" height="220" style="display:block;margin:0 auto" />
+      <a href="${t.ticketUrl}">
+        <img src="${t.qrUrl}" alt="Ticket QR code — tap to view your ticket" width="220" height="220" style="display:block;margin:0 auto;border:0" />
+      </a>
       <p style="margin:12px 0 0;font-family:ui-monospace,monospace;font-size:20px;font-weight:700;letter-spacing:.15em">${t.bookingCode}</p>
     </div>
 
