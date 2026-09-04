@@ -6,11 +6,36 @@ import { useFormStatus } from "react-dom";
 import { formatPaise } from "@/lib/money";
 import { startBookingAction, type BookingState } from "./actions";
 
+/**
+ * Whether an ISO date is a Monday, computed without a timezone library.
+ *
+ * `new Date("2026-09-07")` parses as UTC midnight, which can land on the
+ * previous day in a negative-offset zone — but the park's zone is Asia/Kolkata
+ * (UTC+5:30), so constructing the parts explicitly in local time avoids the
+ * whole question. This is a hint for the customer only; the server's
+ * `isClosedDay` in park time is what actually decides (spec §6).
+ */
+function isMonday(isoDate: string): boolean {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  if (!y || !m || !d) return false;
+  return new Date(y, m - 1, d, 12, 0, 0).getDay() === 1;
+}
+
 type Props = {
   perVisitorPaise: number;
   convenienceFeePaise: number;
   maxVisitors: number;
-  visitDateLabel: string;
+  /** Today in park time — the earliest bookable day. */
+  minVisitDate: string;
+  /** The furthest day ahead bookings are open for. */
+  maxVisitDate: string;
+  /** What the picker opens on: today, or the next open day if today is closed. */
+  defaultVisitDate: string;
+  /**
+   * Passed in rather than imported: `@/domain/booking/visit-date` pulls in
+   * `@/lib/env`, which throws the moment it loads in a browser.
+   */
+  maxAdvanceDays: number;
   /**
    * Minted on the server for this render. Re-submitting from the same page —
    * a double tap, or a retry after an abandoned checkout — reuses it and so
@@ -67,11 +92,19 @@ export function BookingForm({
   perVisitorPaise,
   convenienceFeePaise,
   maxVisitors,
-  visitDateLabel,
+  minVisitDate,
+  maxVisitDate,
+  defaultVisitDate,
+  maxAdvanceDays,
   idempotencyKey,
 }: Props) {
   const [state, formAction] = useActionState<BookingState, FormData>(startBookingAction, {});
   const [visitors, setVisitors] = useState(2);
+  const [visitDate, setVisitDate] = useState(defaultVisitDate);
+
+  // Mirrors the server's closed-day rule so the customer is told before paying
+  // rather than after submitting. The server re-checks regardless.
+  const closedDaySelected = isMonday(visitDate);
 
   // Warm the SDK up front so tapping Pay opens checkout without a wait.
   useEffect(() => {
@@ -110,8 +143,31 @@ export function BookingForm({
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
 
       <section className="rounded-xl border border-line bg-surface p-5">
-        <h2 className="mb-1 font-medium">How many visitors?</h2>
-        <p className="text-muted mb-4 text-sm">Visiting on {visitDateLabel}</p>
+        <h2 className="mb-1 font-medium">When are you visiting?</h2>
+        <p className="text-muted mb-4 text-sm">
+          Book up to {maxAdvanceDays} days ahead. The park is closed on Mondays.
+        </p>
+
+        <input
+          type="date"
+          name="visitDate"
+          value={visitDate}
+          min={minVisitDate}
+          max={maxVisitDate}
+          required
+          onChange={(e) => setVisitDate(e.target.value)}
+          className="touch-target w-full rounded-lg border border-line px-3 text-base outline-none focus:border-brand"
+        />
+
+        {closedDaySelected ? (
+          <p className="text-danger mt-2 text-sm">
+            The park is closed on Mondays. Please choose another date.
+          </p>
+        ) : null}
+      </section>
+
+      <section className="rounded-xl border border-line bg-surface p-5">
+        <h2 className="mb-4 font-medium">How many visitors?</h2>
 
         <div className="flex items-center justify-center gap-5">
           <button
