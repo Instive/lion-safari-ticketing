@@ -18,6 +18,34 @@ export const MAX_ADVANCE_DAYS = 15;
  */
 const CLOSED_WEEKDAY = 1;
 
+/**
+ * The hour (park time, 24h) after which today can no longer be booked online.
+ *
+ * The park closes at 5pm, so a ticket bought at 5:30pm for "today" is one the
+ * guest can never use — the gate is shut and `confirmBoarding` would reject it
+ * tomorrow as WRONG_DATE. Selling it would be taking money for nothing.
+ *
+ * Note the public site also advertises "last entry one hour before closing",
+ * which would make 16 the stricter and arguably more correct value. 17 is what
+ * is enforced here deliberately; change this one constant to move it.
+ */
+const TODAY_CUTOFF_HOUR = 17;
+
+/** The park's current hour (0-23), in park time. */
+function currentHour(): number {
+  return new TZDate(new Date(), env.APP_TIMEZONE).getHours();
+}
+
+/**
+ * Whether today can still be booked, i.e. the park has not closed yet.
+ *
+ * Exported so the booking page can move the picker off today rather than
+ * offering a date the server is about to refuse.
+ */
+export function isTodayStillBookable(): boolean {
+  return currentHour() < TODAY_CUTOFF_HOUR;
+}
+
 /** ISO date (YYYY-MM-DD) `days` after the park's today. */
 function addBusinessDays(days: number): string {
   const now = new TZDate(new Date(), env.APP_TIMEZONE);
@@ -41,9 +69,17 @@ export function isClosedDay(isoDate: string): boolean {
   return at.getDay() === CLOSED_WEEKDAY;
 }
 
-/** The earliest and latest date an online booking may be made for. */
+/**
+ * The earliest and latest date an online booking may be made for.
+ *
+ * After the park closes, `min` moves to tomorrow: today is no longer sellable,
+ * so offering it in the date input would only produce a rejection at checkout.
+ * `max` stays anchored to today, so the window shrinks by a day rather than
+ * sliding forward — the promise is "15 days ahead", not "16 on some evenings".
+ */
 export function bookableRange(): { min: string; max: string } {
-  return { min: businessDate(), max: addBusinessDays(MAX_ADVANCE_DAYS) };
+  const min = isTodayStillBookable() ? businessDate() : addBusinessDays(1);
+  return { min, max: addBusinessDays(MAX_ADVANCE_DAYS) };
 }
 
 /**
@@ -83,7 +119,17 @@ export function assertBookableVisitDate(isoDate: string): void {
     throw new DomainError("INVALID_VISIT_DATE", "Please choose a valid visit date.");
   }
 
+  const today = businessDate();
   const { min, max } = bookableRange();
+
+  // Today, after closing — worth its own message, because "that date has
+  // already passed" is untrue and unhelpful at 5:30pm on the day itself.
+  if (isoDate === today && !isTodayStillBookable()) {
+    throw new DomainError(
+      "PARK_CLOSED_FOR_TODAY",
+      "Today's safari has closed. Please choose a later date.",
+    );
+  }
 
   if (isoDate < min) {
     throw new DomainError(
