@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { createOnlineBooking } from "@/domain/booking/create";
 import { MAX_VISITORS_PER_BOOKING } from "@/domain/booking/pricing";
+import { assertBookableVisitDate } from "@/domain/booking/visit-date";
 import { DomainError } from "@/domain/errors";
 import { startOnlinePayment } from "@/domain/payment/start";
 import { paymentsConfigured } from "@/lib/env";
@@ -16,6 +17,11 @@ const schema = z.object({
     .trim()
     .regex(/^[0-9]{10}$/, "10-digit phone required"),
   customerEmail: z.email().max(200),
+  /**
+   * The day the guest is coming. Range and closed-day rules are enforced by
+   * `assertBookableVisitDate` below, not here, so one module owns them.
+   */
+  visitDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "visit date required"),
   /** Minted when the form was rendered — a double-tap reuses it. */
   idempotencyKey: z.uuid(),
 });
@@ -45,6 +51,7 @@ export async function startBookingAction(
     customerName: formData.get("customerName"),
     customerPhone: formData.get("customerPhone"),
     customerEmail: formData.get("customerEmail"),
+    visitDate: formData.get("visitDate"),
     idempotencyKey: formData.get("idempotencyKey"),
   });
 
@@ -54,8 +61,13 @@ export async function startBookingAction(
   }
 
   try {
+    // Re-checked server-side: the input's min/max and disabled closed days are
+    // a convenience for the browser, never the rule.
+    assertBookableVisitDate(parsed.data.visitDate);
+
     const { booking } = await createOnlineBooking({
       visitorCount: parsed.data.visitorCount,
+      visitDate: parsed.data.visitDate,
       customerName: parsed.data.customerName,
       customerPhone: parsed.data.customerPhone,
       customerEmail: parsed.data.customerEmail,
@@ -89,6 +101,8 @@ function friendlyFieldError(field: unknown): string {
       return "Please enter a valid email address — your ticket is sent there.";
     case "visitorCount":
       return "Please choose at least one visitor.";
+    case "visitDate":
+      return "Please choose the date you are visiting.";
     default:
       return "Please check your details and try again.";
   }

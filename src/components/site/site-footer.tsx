@@ -1,9 +1,15 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { env } from "@/lib/env";
+import { supportPhone } from "@/lib/env";
+import { PARK_ADDRESS, PARK_SOCIAL, PARK_TAGLINE, PARK_TIMINGS } from "@/lib/park-info";
 
 export function SiteFooter() {
+  // `supportPhone()` rather than `env.SUPPORT_PHONE`: this footer wraps the
+  // statically prerendered customer pages, and reading the validated env here
+  // would demand production secrets during `next build` (see lib/env.ts).
+  const support = supportPhone();
+
   return (
     <footer className="border-t border-zoo-cream-strong bg-zoo-forest-deep text-zoo-cream">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:grid-cols-2 lg:grid-cols-4">
@@ -23,7 +29,7 @@ export function SiteFooter() {
             Choudhary Zoological Park.
           </p>
           <div className="mt-4 flex gap-3">
-            <SocialIcon label="Instagram">
+            <SocialIcon label="Instagram" href={PARK_SOCIAL.instagram}>
               <rect x="3" y="3" width="18" height="18" rx="5" />
               <circle cx="12" cy="12" r="4" />
               <circle cx="17.2" cy="6.8" r="0.6" fill="currentColor" stroke="none" />
@@ -76,11 +82,9 @@ export function SiteFooter() {
             Timings
           </h3>
           <ul className="mt-3 space-y-2 text-sm text-zoo-cream/80">
-            <li>Tuesday – Sunday: 9:00 AM – 5:00 PM</li>
-            <li>Closed Mondays</li>
-            <li className="pt-1 text-zoo-cream/60">
-              Last entry one hour before closing.
-            </li>
+            <li>{PARK_TIMINGS.open}</li>
+            <li>{PARK_TIMINGS.closed}</li>
+            <li className="pt-1 text-zoo-cream/60">{PARK_TIMINGS.lastEntry}.</li>
           </ul>
         </div>
 
@@ -89,34 +93,67 @@ export function SiteFooter() {
             Location
           </h3>
           <p className="mt-3 text-sm text-zoo-cream/80">
-            Chhat Village, Zirakpur–Patiala Highway,
-            <br />
-            Punjab — approx. 17 km from Chandigarh
+            {PARK_ADDRESS.lines.map((line, i) => (
+              <span key={line}>
+                {i > 0 ? <br /> : null}
+                {line}
+              </span>
+            ))}
           </p>
-          {env.SUPPORT_PHONE ? (
+          {support ? (
             <p className="mt-3 text-sm text-zoo-cream/80">
-              Support: <span className="text-zoo-gold-light">{env.SUPPORT_PHONE}</span>
+              Support: <span className="text-zoo-gold-light">{support}</span>
             </p>
           ) : null}
         </div>
       </div>
 
       <div className="border-t border-zoo-cream/10 px-4 py-4 text-center text-xs text-zoo-cream/50">
-        Protect Wildlife. Preserve Nature. — M.C.Z.P Chhatbir
+        {PARK_TAGLINE}
       </div>
     </footer>
   );
 }
 
-function SocialIcon({ label, children }: { label: string; children: React.ReactNode }) {
+/**
+ * A social icon, as a link when there is somewhere to go and a plain mark
+ * otherwise — an <a> with no href is not focusable and reads as a broken
+ * control to a screen reader, so the ones we have no account for stay spans.
+ */
+function SocialIcon({
+  label,
+  href,
+  children,
+}: {
+  label: string;
+  href?: string;
+  children: React.ReactNode;
+}) {
+  const className =
+    "grid h-9 w-9 place-items-center rounded-full border border-zoo-cream/25 text-zoo-cream/80 transition-colors";
+  const icon = (
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.6">
+      {children}
+    </svg>
+  );
+
+  if (!href) {
+    return (
+      <span aria-label={label} className={className}>
+        {icon}
+      </span>
+    );
+  }
+
   return (
-    <span
+    <a
+      href={href}
       aria-label={label}
-      className="grid h-9 w-9 place-items-center rounded-full border border-zoo-cream/25 text-zoo-cream/80"
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`${className} hover:border-zoo-gold-light hover:text-zoo-gold-light`}
     >
-      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.6">
-        {children}
-      </svg>
-    </span>
+      {icon}
+    </a>
   );
 }

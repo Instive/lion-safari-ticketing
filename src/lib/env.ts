@@ -56,7 +56,7 @@ const schema = z.object({
   CASHFREE_SECRET_KEY: z.string().default(""),
   CASHFREE_WEBHOOK_SECRET: z.string().default(""),
 
-  RESEND_API_KEY: z.string().default(""),
+  BREVO_API_KEY: z.string().default(""),
   MAIL_FROM: z.string().default("Lion Safari <tickets@example.com>"),
   SUPPORT_PHONE: z.string().default(""),
 
@@ -165,6 +165,23 @@ export const env: Env = new Proxy({} as Env, {
 export function appEnv(): Env["APP_ENV"] {
   const value = process.env.APP_ENV;
   return value === "local" || value === "dev" ? value : "production";
+}
+
+/**
+ * The public support number, WITHOUT validating everything else.
+ *
+ * Exists for the same reason as `appEnv()` above, and for the same page: the
+ * site footer wraps every customer route, including the statically prerendered
+ * ones, so reading `env.SUPPORT_PHONE` there ran the whole schema during
+ * `next build` and failed the deploy on a missing APP_BASE_URL — for a phone
+ * number printed in a footer.
+ *
+ * Falls back to "" — the same default the schema declares, so behaviour is
+ * unchanged — and fails in the safe direction: an unreadable value hides the
+ * support line, which is exactly what an unconfigured deployment already does.
+ */
+export function supportPhone(): string {
+  return process.env.SUPPORT_PHONE ?? "";
 }
 
 /** Online payments cannot be accepted until Cashfree credentials are present. */

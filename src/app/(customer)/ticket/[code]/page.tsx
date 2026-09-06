@@ -9,6 +9,7 @@ import { TicketView } from "@/components/ticket-view";
 import { clientIpFrom } from "@/lib/auth/session";
 import { limitTicketLookup } from "@/lib/rate-limit";
 import { env } from "@/lib/env";
+import { DownloadTicketButton } from "./download-button";
 import { PaymentPending } from "./payment-pending";
 
 export const metadata = { title: "Your ticket — Chhatbir Zoo" };
@@ -117,6 +118,9 @@ export default async function CustomerTicketPage({
           customerName: row.customerName,
         }}
       />
+      <div className="no-print mt-4">
+        <DownloadTicketButton bookingCode={row.bookingCode} />
+      </div>
       <p className="text-muted no-print mt-4 text-center text-xs">
         Save this page or check your email. You can find it again from the home page.
       </p>

@@ -110,7 +110,7 @@ services:
         sync: false
       - key: CASHFREE_WEBHOOK_SECRET
         sync: false
-      - key: RESEND_API_KEY
+      - key: BREVO_API_KEY
         sync: false
       - key: MAIL_FROM
         sync: false
@@ -186,7 +186,7 @@ services:
         sync: false
       - key: CASHFREE_WEBHOOK_SECRET
         sync: false
-      - key: RESEND_API_KEY
+      - key: BREVO_API_KEY
         sync: false
       - key: MAIL_FROM
         sync: false
@@ -267,9 +267,15 @@ services:
         sync: false
       - key: CASHFREE_WEBHOOK_SECRET
         sync: false
-      # RESEND_API_KEY and REPORT_EMAIL_TO are deliberately absent. Mail and the
-      # nightly report already no-op without credentials, which is exactly what
-      # a test environment wants: no email to a real address from a rehearsal.
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      # REPORT_EMAIL_TO is deliberately absent. The nightly report already
+      # no-ops without a recipient, which is exactly what a test environment
+      # wants: no email to a real address from a rehearsal. Ticket delivery is
+      # different — MAIL_FROM and BREVO_API_KEY above are intentionally set so
+      # the online payment flow can be tested end to end, including delivery.
 
   - type: worker
     name: lion-safari-worker-dev
