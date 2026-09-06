@@ -8,9 +8,10 @@ import { env } from "@/lib/env";
 import { sendMail } from "@/lib/mail";
 import { formatPaise } from "@/lib/money";
 import {
-  FREE_ENTRY_UNDER_AGE,
+  FREE_ENTRY_HEADLINE,
   PARK_ADDRESS,
   PARK_RULES,
+  PARK_SOCIAL,
   PARK_TAGLINE,
   PARK_TIMINGS,
 } from "@/lib/park-info";
@@ -160,11 +161,22 @@ function ticketEmailHtml(t: {
     <tr><td style="border-top:1px dashed #d9e0da"></td></tr>
 
     <tr><td style="padding:14px 16px 12px;text-align:center">
-      <div style="display:inline-block;background:#14603c;color:#fff;border-radius:999px;padding:4px 12px;font-size:9px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase">Scan at the gate</div>
+      <!--
+        Centred with nested tables plus align=center, rather than
+        display:inline-block with text-align. Outlook's rendering engine
+        ignores inline-block outright, which left both the pill and the QR
+        hard against the left edge while every other client centred them.
+        A table with margin:0 auto is the one centring that works everywhere.
+      -->
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto">
+        <tr><td style="background:#14603c;border-radius:999px;padding:5px 14px;font-size:9px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:#ffffff;text-align:center">Scan at the gate</td></tr>
+      </table>
 
-      <div style="margin:12px auto 0;background:#fff;padding:8px;display:inline-block">
-        <a href="${t.ticketUrl}"><img src="${t.qrUrl}" alt="Ticket QR code — tap to view your ticket" width="200" height="200" style="display:block;border:0" /></a>
-      </div>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:14px auto 0">
+        <tr><td style="background:#ffffff;padding:8px;line-height:0">
+          <a href="${t.ticketUrl}"><img src="${t.qrUrl}" alt="Ticket QR code — tap to view your ticket" width="200" height="200" style="display:block;border:0" /></a>
+        </td></tr>
+      </table>
 
       <div style="margin-top:10px;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:#5c6b63">
         Ticket no.
@@ -258,9 +270,8 @@ function visitInfoHtml(ticketUrl: string): string {
 
       <div style="background:#f0f5f1;border-left:3px solid #14603c;padding:14px 16px;margin:0 8px 22px">
         <div style="font-size:13px;line-height:1.6;color:#14201a">
-          <strong style="color:#14603c">Children under ${FREE_ENTRY_UNDER_AGE} enter free</strong>
-          &mdash; there is no need to buy them a ticket, and they should not be
-          counted in your booking.
+          <strong style="color:#14603c">${FREE_ENTRY_HEADLINE}</strong>
+          &mdash; they do not need a ticket, and should not be counted in a booking.
         </div>
       </div>
 
@@ -283,8 +294,14 @@ function visitInfoHtml(ticketUrl: string): string {
         </div>
       </div>
 
-      <div style="margin-top:24px;padding:16px 8px;border-top:1px solid #d9e0da;text-align:center;font-size:11px;color:#8a968f;letter-spacing:0.04em">
-        ${PARK_TAGLINE}
+      <div style="margin-top:24px;padding:16px 8px;border-top:1px solid #d9e0da;text-align:center">
+        <div style="font-size:12px;color:#5c6b63">
+          Follow us on
+          <a href="${PARK_SOCIAL.instagram}" style="color:#14603c;font-weight:600;text-decoration:none">Instagram</a>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:#8a968f;letter-spacing:0.04em">
+          ${PARK_TAGLINE}
+        </div>
       </div>
 
     </td></tr>

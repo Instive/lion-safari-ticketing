@@ -36,6 +36,14 @@ export const PARK_RULES = [
 /** Under this age, a child does not need a ticket. */
 export const FREE_ENTRY_UNDER_AGE = 3;
 
-export const FREE_ENTRY_NOTE = `Children under ${FREE_ENTRY_UNDER_AGE} enter free and do not need a ticket.`;
+/** The headline, for places that emphasise it separately from the detail. */
+export const FREE_ENTRY_HEADLINE = `Children under the age of ${FREE_ENTRY_UNDER_AGE} years enter free`;
+
+export const FREE_ENTRY_NOTE = `${FREE_ENTRY_HEADLINE} — they do not need a ticket and should not be included in your visitor count.`;
 
 export const PARK_TAGLINE = "Protect Wildlife. Preserve Nature. — M.C.Z.P Chhatbir";
+
+/** The park's official social accounts. */
+export const PARK_SOCIAL = {
+  instagram: "https://www.instagram.com/chhatbir_wildlifesafari/",
+} as const;

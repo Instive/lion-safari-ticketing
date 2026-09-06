@@ -257,7 +257,9 @@ export function BookingForm({
             👶
           </span>
           <p className="text-sm leading-snug">
-            <span className="font-semibold text-brand">Children under 3 enter free.</span>{" "}
+            <span className="font-semibold text-brand">
+              Children under the age of 3 years — enter free.
+            </span>{" "}
             <span className="text-muted">Please do not include them in the count below.</span>
           </p>
         </div>
@@ -292,7 +294,6 @@ export function BookingForm({
           <Field
             label="Full name"
             name="customerName"
-            placeholder="As it should appear on the ticket"
             autoComplete="name"
             required
             maxLength={120}
@@ -305,17 +306,15 @@ export function BookingForm({
             autoComplete="tel"
             required
             maxLength={10}
-            hint="Used to look up your ticket if you lose it."
           />
           <Field
             label="Email address"
             name="customerEmail"
             type="email"
-            placeholder="you@example.com"
             autoComplete="email"
             required
             maxLength={200}
-            hint="Your ticket is sent here. No account needed."
+            hint="Your ticket is sent here."
           />
         </div>
       </section>

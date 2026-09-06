@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { supportPhone } from "@/lib/env";
-import { PARK_ADDRESS, PARK_TAGLINE, PARK_TIMINGS } from "@/lib/park-info";
+import { PARK_ADDRESS, PARK_SOCIAL, PARK_TAGLINE, PARK_TIMINGS } from "@/lib/park-info";
 
 export function SiteFooter() {
   // `supportPhone()` rather than `env.SUPPORT_PHONE`: this footer wraps the
@@ -29,7 +29,7 @@ export function SiteFooter() {
             Choudhary Zoological Park.
           </p>
           <div className="mt-4 flex gap-3">
-            <SocialIcon label="Instagram">
+            <SocialIcon label="Instagram" href={PARK_SOCIAL.instagram}>
               <rect x="3" y="3" width="18" height="18" rx="5" />
               <circle cx="12" cy="12" r="4" />
               <circle cx="17.2" cy="6.8" r="0.6" fill="currentColor" stroke="none" />
@@ -115,15 +115,45 @@ export function SiteFooter() {
   );
 }
 
-function SocialIcon({ label, children }: { label: string; children: React.ReactNode }) {
+/**
+ * A social icon, as a link when there is somewhere to go and a plain mark
+ * otherwise — an <a> with no href is not focusable and reads as a broken
+ * control to a screen reader, so the ones we have no account for stay spans.
+ */
+function SocialIcon({
+  label,
+  href,
+  children,
+}: {
+  label: string;
+  href?: string;
+  children: React.ReactNode;
+}) {
+  const className =
+    "grid h-9 w-9 place-items-center rounded-full border border-zoo-cream/25 text-zoo-cream/80 transition-colors";
+  const icon = (
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.6">
+      {children}
+    </svg>
+  );
+
+  if (!href) {
+    return (
+      <span aria-label={label} className={className}>
+        {icon}
+      </span>
+    );
+  }
+
   return (
-    <span
+    <a
+      href={href}
       aria-label={label}
-      className="grid h-9 w-9 place-items-center rounded-full border border-zoo-cream/25 text-zoo-cream/80"
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`${className} hover:border-zoo-gold-light hover:text-zoo-gold-light`}
     >
-      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.6">
-        {children}
-      </svg>
-    </span>
+      {icon}
+    </a>
   );
 }
