@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { FREE_ENTRY_NOTE, PARK_RULES, PARK_TIMINGS } from "@/lib/park-info";
+
 export const metadata = {
   title: "Plan Your Visit — Chhatbir Zoo",
   description: "Timings, entry information, rules and directions for the Lion & Deer Safari at Chhatbir Zoo.",
@@ -19,9 +21,9 @@ export default function VisitPage() {
 
       <Section id="timings" title="Timings">
         <dl className="grid gap-3 sm:grid-cols-2">
-          <InfoRow label="Open">Tuesday – Sunday, 9:00 AM – 5:00 PM</InfoRow>
-          <InfoRow label="Closed">Every Monday</InfoRow>
-          <InfoRow label="Last entry">One hour before closing</InfoRow>
+          <InfoRow label="Open">{PARK_TIMINGS.open}</InfoRow>
+          <InfoRow label="Closed">{PARK_TIMINGS.closed}</InfoRow>
+          <InfoRow label="Last entry">{PARK_TIMINGS.lastEntry}</InfoRow>
           <InfoRow label="Best time to visit">
             Early morning or late afternoon, and the cooler months (Oct – Mar), for the most
             active wildlife sightings
@@ -39,6 +41,7 @@ export default function VisitPage() {
           <li>Or pay cash at the counter on arrival — no online account needed either way.</li>
           <li>Your whole group boards together on one ticket; the visitor count is fixed at booking.</li>
           <li>Lost your ticket? Look it up again with your booking code and phone number.</li>
+          <li>{FREE_ENTRY_NOTE}</li>
         </ul>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
@@ -92,14 +95,7 @@ export default function VisitPage() {
   );
 }
 
-const RULES = [
-  "Stay seated inside the safari vehicle at all times — do not lean or reach out.",
-  "Do not feed, tease or make loud noises at the animals.",
-  "Flash photography is not permitted near the enclosures.",
-  "Follow the instructions of safari and gate staff at all times.",
-  "No plastic bags, smoking or alcohol inside the park.",
-  "Children must be accompanied by an adult throughout the visit.",
-];
+const RULES = PARK_RULES;
 
 const FAQS = [
   {

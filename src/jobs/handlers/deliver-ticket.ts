@@ -7,6 +7,13 @@ import { writeAudit } from "@/domain/audit";
 import { env } from "@/lib/env";
 import { sendMail } from "@/lib/mail";
 import { formatPaise } from "@/lib/money";
+import {
+  FREE_ENTRY_NOTE,
+  PARK_ADDRESS,
+  PARK_RULES,
+  PARK_TAGLINE,
+  PARK_TIMINGS,
+} from "@/lib/park-info";
 import { businessDate, formatClockTime, formatDateTime, formatVisitDate } from "@/lib/time";
 import type { DeliverTicketJob } from "../queue";
 
@@ -191,7 +198,49 @@ function ticketEmailHtml(t: {
     </td></tr>
 
   </table>
+
+  ${visitInfoHtml(t.ticketUrl)}
 </body></html>`;
+}
+
+/**
+ * Everything a guest needs before arriving, below the ticket itself.
+ *
+ * Kept as a separate block rather than folded into the ticket card: the card
+ * is what gets printed and shown at the gate, and padding it with timings and
+ * directions makes the QR harder to find on a phone screen. Content comes from
+ * `@/lib/park-info` so it cannot drift from the website's footer and /visit.
+ */
+function visitInfoHtml(ticketUrl: string): string {
+  const section = (title: string, body: string) => `
+    <tr><td style="padding:14px 16px 0">
+      <div style="font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#14603c">${title}</div>
+      <div style="margin-top:5px;font-size:12px;line-height:1.65;color:#3d4a44">${body}</div>
+    </td></tr>`;
+
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="max-width:420px;margin:14px auto 0;width:100%;background:#fff;border:1px solid #d9e0da;border-radius:16px;overflow:hidden">
+
+    <tr><td style="background:#14603c;color:#fff;padding:10px 16px;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;text-align:center">Before you visit</td></tr>
+
+    ${section(
+      "Timings",
+      `${PARK_TIMINGS.open}<br/>${PARK_TIMINGS.closed}<br/><span style="color:#5c6b63">${PARK_TIMINGS.lastEntry}</span>`,
+    )}
+
+    ${section("Tickets", FREE_ENTRY_NOTE)}
+
+    ${section("Location", PARK_ADDRESS.lines.join("<br/>"))}
+
+    ${section("Rules &amp; guidelines", PARK_RULES.map((rule) => `• ${rule}`).join("<br/>"))}
+
+    <tr><td style="padding:14px 16px 16px">
+      <div style="font-size:11px;color:#5c6b63">
+        View this ticket online any time: <a href="${ticketUrl}" style="color:#14603c">${ticketUrl}</a>
+      </div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid #d9e0da;text-align:center;font-size:10px;color:#8a968f">${PARK_TAGLINE}</div>
+    </td></tr>
+
+  </table>`;
 }
 
 function escapeHtml(value: string): string {

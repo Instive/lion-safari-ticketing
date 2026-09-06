@@ -167,7 +167,10 @@ export function BookingForm({
       </section>
 
       <section className="rounded-xl border border-line bg-surface p-5">
-        <h2 className="mb-4 font-medium">How many visitors?</h2>
+        <h2 className="mb-1 font-medium">How many visitors?</h2>
+        <p className="text-muted mb-4 text-sm">
+          Children under 3 enter free — do not count them here.
+        </p>
 
         <div className="flex items-center justify-center gap-5">
           <button

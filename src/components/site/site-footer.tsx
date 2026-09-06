@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { supportPhone } from "@/lib/env";
+import { PARK_ADDRESS, PARK_TAGLINE, PARK_TIMINGS } from "@/lib/park-info";
 
 export function SiteFooter() {
   // `supportPhone()` rather than `env.SUPPORT_PHONE`: this footer wraps the
@@ -81,11 +82,9 @@ export function SiteFooter() {
             Timings
           </h3>
           <ul className="mt-3 space-y-2 text-sm text-zoo-cream/80">
-            <li>Tuesday – Sunday: 9:00 AM – 5:00 PM</li>
-            <li>Closed Mondays</li>
-            <li className="pt-1 text-zoo-cream/60">
-              Last entry one hour before closing.
-            </li>
+            <li>{PARK_TIMINGS.open}</li>
+            <li>{PARK_TIMINGS.closed}</li>
+            <li className="pt-1 text-zoo-cream/60">{PARK_TIMINGS.lastEntry}.</li>
           </ul>
         </div>
 
@@ -94,9 +93,12 @@ export function SiteFooter() {
             Location
           </h3>
           <p className="mt-3 text-sm text-zoo-cream/80">
-            Chhat Village, Zirakpur–Patiala Highway,
-            <br />
-            Punjab — approx. 17 km from Chandigarh
+            {PARK_ADDRESS.lines.map((line, i) => (
+              <span key={line}>
+                {i > 0 ? <br /> : null}
+                {line}
+              </span>
+            ))}
           </p>
           {support ? (
             <p className="mt-3 text-sm text-zoo-cream/80">
@@ -107,7 +109,7 @@ export function SiteFooter() {
       </div>
 
       <div className="border-t border-zoo-cream/10 px-4 py-4 text-center text-xs text-zoo-cream/50">
-        Protect Wildlife. Preserve Nature. — M.C.Z.P Chhatbir
+        {PARK_TAGLINE}
       </div>
     </footer>
   );
