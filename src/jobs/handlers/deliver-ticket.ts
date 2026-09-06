@@ -8,7 +8,7 @@ import { env } from "@/lib/env";
 import { sendMail } from "@/lib/mail";
 import { formatPaise } from "@/lib/money";
 import {
-  FREE_ENTRY_NOTE,
+  FREE_ENTRY_UNDER_AGE,
   PARK_ADDRESS,
   PARK_RULES,
   PARK_TAGLINE,
@@ -132,7 +132,18 @@ function ticketEmailHtml(t: {
     : formatVisitDate(t.visitDate);
 
   return `<!doctype html>
-<html><body style="margin:0;padding:24px 12px;background:#f6f7f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#14201a">
+<html>
+<head>
+  <!--
+    Without this the rupee sign and every em-dash arrive as mojibake: the body
+    is UTF-8 but a mail client with no declaration falls back to latin-1, and
+    "₹150.00" becomes "â‚¹150.00" on the ticket a guest is holding.
+  -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Your Lion Safari ticket</title>
+</head>
+<body style="margin:0;padding:24px 12px;background:#f6f7f5;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#14201a">
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="max-width:420px;margin:0 auto;width:100%;background:#fff;border:1px solid #d9e0da;border-radius:16px;overflow:hidden">
 
     ${
@@ -212,34 +223,71 @@ function ticketEmailHtml(t: {
  * `@/lib/park-info` so it cannot drift from the website's footer and /visit.
  */
 function visitInfoHtml(ticketUrl: string): string {
-  const section = (title: string, body: string) => `
-    <tr><td style="padding:14px 16px 0">
-      <div style="font-size:10px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#14603c">${title}</div>
-      <div style="margin-top:5px;font-size:12px;line-height:1.65;color:#3d4a44">${body}</div>
-    </td></tr>`;
+  const heading = (title: string) =>
+    `<div style="font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#14603c">${title}</div>`;
 
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="max-width:420px;margin:14px auto 0;width:100%;background:#fff;border:1px solid #d9e0da;border-radius:16px;overflow:hidden">
+  const bodyText = (html: string) =>
+    `<div style="margin-top:6px;font-size:13px;line-height:1.7;color:#3d4a44">${html}</div>`;
 
-    <tr><td style="background:#14603c;color:#fff;padding:10px 16px;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;text-align:center">Before you visit</td></tr>
+  /*
+   * Two columns that collapse to one on a phone.
+   *
+   * Done with `display:inline-block` on fixed-width cells rather than a media
+   * query, because Gmail strips <style> blocks: at 600px wide both sit side by
+   * side, and on a narrower screen the second wraps beneath the first on its
+   * own. No CSS the client can throw away, no horizontal scroll either way.
+   */
+  const column = (inner: string) =>
+    `<div style="display:inline-block;vertical-align:top;width:100%;max-width:262px;padding:0 8px 20px 8px;box-sizing:border-box">${inner}</div>`;
 
-    ${section(
-      "Timings",
-      `${PARK_TIMINGS.open}<br/>${PARK_TIMINGS.closed}<br/><span style="color:#5c6b63">${PARK_TIMINGS.lastEntry}</span>`,
-    )}
+  return `
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;margin:28px auto 0;width:100%">
+    <tr><td style="padding:0 8px">
 
-    ${section("Tickets", FREE_ENTRY_NOTE)}
-
-    ${section("Location", PARK_ADDRESS.lines.join("<br/>"))}
-
-    ${section("Rules &amp; guidelines", PARK_RULES.map((rule) => `• ${rule}`).join("<br/>"))}
-
-    <tr><td style="padding:14px 16px 16px">
-      <div style="font-size:11px;color:#5c6b63">
-        View this ticket online any time: <a href="${ticketUrl}" style="color:#14603c">${ticketUrl}</a>
+      <div style="text-align:center;padding-bottom:4px">
+        <div style="font-size:15px;font-weight:700;letter-spacing:0.04em;color:#14201a">Before you visit</div>
+        <div style="margin:8px auto 0;width:44px;height:2px;background:#14603c"></div>
       </div>
-      <div style="margin-top:12px;padding-top:10px;border-top:1px solid #d9e0da;text-align:center;font-size:10px;color:#8a968f">${PARK_TAGLINE}</div>
-    </td></tr>
 
+      <div style="margin-top:22px;font-size:0">
+        ${column(`${heading("Timings")}${bodyText(
+          `${PARK_TIMINGS.open}<br/>${PARK_TIMINGS.closed}<br/><span style="color:#5c6b63">${PARK_TIMINGS.lastEntry}</span>`,
+        )}`)}
+        ${column(`${heading("Getting here")}${bodyText(PARK_ADDRESS.lines.join("<br/>"))}`)}
+      </div>
+
+      <div style="background:#f0f5f1;border-left:3px solid #14603c;padding:14px 16px;margin:0 8px 22px">
+        <div style="font-size:13px;line-height:1.6;color:#14201a">
+          <strong style="color:#14603c">Children under ${FREE_ENTRY_UNDER_AGE} enter free</strong>
+          &mdash; there is no need to buy them a ticket, and they should not be
+          counted in your booking.
+        </div>
+      </div>
+
+      <div style="padding:0 8px">
+        ${heading("Rules &amp; guidelines")}
+        <div style="margin-top:8px">
+          ${PARK_RULES.map(
+            (rule) =>
+              `<div style="font-size:13px;line-height:1.6;color:#3d4a44;padding:5px 0 5px 16px;border-bottom:1px solid #e6ece7;text-indent:-16px">
+                 <span style="color:#14603c;font-weight:700">&bull;&nbsp;&nbsp;</span>${rule}
+               </div>`,
+          ).join("")}
+        </div>
+      </div>
+
+      <div style="padding:22px 8px 0;text-align:center">
+        <div style="font-size:13px;color:#5c6b63;line-height:1.7">
+          Lost this email? View your ticket any time at<br/>
+          <a href="${ticketUrl}" style="color:#14603c;font-weight:600;word-break:break-all">${ticketUrl}</a>
+        </div>
+      </div>
+
+      <div style="margin-top:24px;padding:16px 8px;border-top:1px solid #d9e0da;text-align:center;font-size:11px;color:#8a968f;letter-spacing:0.04em">
+        ${PARK_TAGLINE}
+      </div>
+
+    </td></tr>
   </table>`;
 }
 

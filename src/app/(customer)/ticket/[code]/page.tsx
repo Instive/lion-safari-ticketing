@@ -119,7 +119,7 @@ export default async function CustomerTicketPage({
         }}
       />
       <div className="no-print mt-4">
-        <DownloadTicketButton />
+        <DownloadTicketButton bookingCode={row.bookingCode} />
       </div>
       <p className="text-muted no-print mt-4 text-center text-xs">
         Save this page or check your email. You can find it again from the home page.

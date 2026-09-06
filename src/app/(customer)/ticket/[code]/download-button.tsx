@@ -1,24 +1,20 @@
-"use client";
-
 /**
- * Saves the ticket as a PDF, via the browser's own print dialog.
+ * Downloads the ticket as a PDF, in one tap.
  *
- * Deliberately not a generated-PDF download: the print stylesheet in
- * globals.css already lays the ticket out for paper (and for the counter's
- * 80mm roll), so "Save as PDF" in that dialog produces the same ticket the
- * counter prints, with no PDF library added to the bundle. Every current
- * browser offers a PDF destination — on iOS Safari it is the Share sheet's
- * "Print", which also saves — so the wording says what the guest is trying to
- * do rather than naming one platform's menu item.
+ * A plain link, not a button with an onClick: the server sends
+ * `Content-Disposition: attachment`, so the browser downloads the file
+ * directly instead of opening a print dialog and asking the guest to find
+ * "Save as PDF". No JavaScript involved, so it also works if hydration has
+ * not finished — which on a slow connection at the gate is exactly when
+ * someone is trying to get their ticket.
  */
-export function DownloadTicketButton() {
+export function DownloadTicketButton({ bookingCode }: { bookingCode: string }) {
   return (
-    <button
-      type="button"
-      onClick={() => window.print()}
-      className="touch-target no-print w-full rounded-xl border border-brand px-4 font-semibold text-brand hover:bg-brand hover:text-white"
+    <a
+      href={`/api/ticket/${bookingCode}/pdf`}
+      className="touch-target no-print grid w-full place-items-center rounded-xl border border-brand px-4 font-semibold text-brand transition-colors hover:bg-brand hover:text-white"
     >
-      Download / print ticket
-    </button>
+      Download ticket (PDF)
+    </a>
   );
 }
