@@ -17,6 +17,20 @@ function limiter(key: string, points: number, durationSeconds: number): RateLimi
 
   const created = new RateLimiterPostgres({
     storeClient: pool,
+    /*
+     * Stated explicitly, and it must stay that way.
+     *
+     * rate-limiter-flexible infers this from `storeClient.constructor.name`,
+     * matching "Pool"/"BoundPool" exactly. `@/db` exports the pool as a lazy
+     * Proxy that binds methods, so that name comes back "bound BoundPool",
+     * the match fails, and the constructor throws "storeType is not defined".
+     *
+     * Because `consume()` below deliberately fails OPEN, that throw was
+     * silent: every request was allowed, no rows were ever written to
+     * `rate_limits`, and the enumeration protection on the ticket lookup
+     * (spec §12) was doing nothing at all while appearing to be in place.
+     */
+    storeType: "pool",
     tableName: "rate_limits",
     // Created by migration, so the limiter never issues DDL on a live request.
     tableCreated: true,

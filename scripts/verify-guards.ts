@@ -26,6 +26,7 @@ function check(label: string, ok: boolean, detail = "") {
 }
 
 const PROBE = "scripts/lib/guard-probe.ts";
+const ENV_PROBE = "scripts/lib/env-probe.ts";
 
 /**
  * Runs the probe in its own process with `APP_ENV` set to `appEnv`, or with the
@@ -48,6 +49,39 @@ function runProbe(appEnv: string | null): { code: number; output: string } {
   const result = spawnSync("npx", ["tsx", `--env-file=${file}`, PROBE], {
     encoding: "utf8",
     env: { ...process.env, APP_ENV: undefined } as NodeJS.ProcessEnv,
+  });
+
+  return { code: result.status ?? -1, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
+}
+
+/**
+ * Runs the env probe in its own process with `overrides` applied on top of
+ * `.env.local`.
+ *
+ * Same reasoning as `runProbe`: validation caches once per process, so each
+ * configuration needs its own. Overridden keys are stripped from the base file
+ * first so an empty value is genuinely empty rather than shadowed by the one
+ * already in `.env.local`.
+ */
+function runEnvProbe(overrides: Record<string, string>): { code: number; output: string } {
+  const keys = Object.keys(overrides);
+  const base = readFileSync(".env.local", "utf8")
+    .split("\n")
+    .filter((line) => !keys.some((key) => line.startsWith(`${key}=`)))
+    .join("\n");
+
+  const assigned = keys.map((key) => `${key}=${overrides[key]}`).join("\n");
+
+  const dir = mkdtempSync(join(tmpdir(), "ls-env-"));
+  const file = join(dir, "env");
+  writeFileSync(file, `${base}\n${assigned}\n`);
+
+  const cleared: NodeJS.ProcessEnv = { ...process.env };
+  for (const key of keys) delete cleared[key];
+
+  const result = spawnSync("npx", ["tsx", `--env-file=${file}`, ENV_PROBE], {
+    encoding: "utf8",
+    env: cleared,
   });
 
   return { code: result.status ?? -1, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
@@ -106,6 +140,35 @@ async function main() {
     unguarded.length === 0,
     unguarded.length ? unguarded.join(", ") : `${scripts.length} scripts`,
   );
+
+  // -----------------------------------------------------------------------
+  console.log("\n4. A deployment taking online payments must hold the webhook secret");
+  // An empty CASHFREE_WEBHOOK_SECRET makes verifyWebhook reject every callback
+  // with 401, so no online booking can reach PAID by the only path allowed to
+  // confirm one (CLAUDE.md rule 1). It has to fail at boot, not silently.
+  const withKeys = {
+    CASHFREE_APP_ID: "probe-app-id",
+    CASHFREE_SECRET_KEY: "probe-secret-key",
+  };
+
+  const missing = runEnvProbe({ ...withKeys, CASHFREE_WEBHOOK_SECRET: "" });
+  check("credentials set but no webhook secret is refused", missing.code === 1, `exit ${missing.code}`);
+  check(
+    "and the refusal names CASHFREE_WEBHOOK_SECRET",
+    missing.output.includes("CASHFREE_WEBHOOK_SECRET"),
+  );
+
+  const present = runEnvProbe({ ...withKeys, CASHFREE_WEBHOOK_SECRET: "probe-webhook-secret" });
+  check("credentials set with a webhook secret is accepted", present.code === 0, `exit ${present.code}`);
+
+  // The counter-only case: no Cashfree at all is a legitimate deployment, and
+  // `next build` runs in exactly this shape. It must not be refused.
+  const noPayments = runEnvProbe({
+    CASHFREE_APP_ID: "",
+    CASHFREE_SECRET_KEY: "",
+    CASHFREE_WEBHOOK_SECRET: "",
+  });
+  check("no Cashfree configuration at all is still accepted", noPayments.code === 0, `exit ${noPayments.code}`);
 
   console.log(
     failures === 0

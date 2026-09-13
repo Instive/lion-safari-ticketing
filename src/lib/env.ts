@@ -54,6 +54,16 @@ const schema = z.object({
   CASHFREE_ENV: z.enum(["SANDBOX", "PRODUCTION"]).default("SANDBOX"),
   CASHFREE_APP_ID: z.string().default(""),
   CASHFREE_SECRET_KEY: z.string().default(""),
+  /**
+   * The HMAC key `verifyWebhook` checks every Cashfree callback against
+   * (`domain/payment/cashfree/index.ts`). Optional here, and required by the
+   * refinement below once a deployment actually takes online payments.
+   *
+   * It cannot be plainly required: a counter-only deployment runs with no
+   * Cashfree credentials at all, and `next build` imports this module with none
+   * of them present. So "" stays a legal value, and the refinement narrows it
+   * to the one case where an empty secret is indistinguishable from sabotage.
+   */
   CASHFREE_WEBHOOK_SECRET: z.string().default(""),
 
   BREVO_API_KEY: z.string().default(""),
@@ -92,7 +102,40 @@ const schema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((v) => v === "true"),
-});
+})
+  /**
+   * A deployment that takes online payments MUST hold the webhook secret.
+   *
+   * `verifyWebhook` returns null the moment `CASHFREE_WEBHOOK_SECRET` is empty,
+   * and the webhook route answers 401. Nothing else breaks — orders are still
+   * created, customers still pay, Cashfree still calls — so the only visible
+   * symptom is that no online booking ever reaches PAID by the path that is
+   * meant to confirm it. Every sale instead waits for the reconciliation sweep,
+   * minutes later, and only while a worker happens to be running.
+   *
+   * That is the exact failure this refinement exists to make impossible: the
+   * one credential guarding the only route to PAID (CLAUDE.md rule 1) was
+   * optional, so an unset or mistyped dashboard entry degraded silently into
+   * "reject every webhook" instead of refusing to boot.
+   *
+   * Scoped to deployments that have Cashfree keys, which is what makes it safe
+   * to enforce. A local counter-only setup and `next build` both run with no
+   * Cashfree configuration at all and are untouched; the check bites precisely
+   * when credentials say online payments are live.
+   */
+  .superRefine((cfg, ctx) => {
+    const paymentsLive = cfg.CASHFREE_APP_ID !== "" && cfg.CASHFREE_SECRET_KEY !== "";
+    if (paymentsLive && cfg.CASHFREE_WEBHOOK_SECRET === "") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["CASHFREE_WEBHOOK_SECRET"],
+        message:
+          "required when Cashfree credentials are set — without it every webhook " +
+          "is rejected with 401 and no online booking can reach PAID. Copy it " +
+          `from the Cashfree dashboard for the ${cfg.CASHFREE_ENV} environment.`,
+      });
+    }
+  });
 
 export type Env = z.infer<typeof schema>;
 
