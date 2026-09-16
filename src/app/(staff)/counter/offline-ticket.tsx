@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { TicketCard } from "@/components/ticket-card";
 import {
@@ -40,6 +40,10 @@ export function OfflineTicket({
   onDone: () => void;
 }) {
   const [qr, setQr] = useState<string | null>(null);
+  // Guards the one-shot auto-print below. A ref, not state: firing the dialog
+  // is a side effect that must happen exactly once, and re-rendering because
+  // it happened would be pointless.
+  const printed = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,6 +56,22 @@ export function OfflineTicket({
       cancelled = true;
     };
   }, [ticket.token]);
+
+  /*
+    Opens the print dialog once the ticket is actually printable, matching the
+    online sale screen so staff read one flow rather than two.
+
+    Waiting on `qr` is the whole point of doing this separately from the online
+    version: there the QR arrives server-rendered with the page, but here it is
+    generated in the browser, and printing before it resolves would hand a
+    guest a ticket with an empty box where the scannable part should be. An
+    offline sale is exactly when nobody can recover that at the gate.
+  */
+  useEffect(() => {
+    if (!qr || printed.current) return;
+    printed.current = true;
+    window.print();
+  }, [qr]);
 
   return (
     /*

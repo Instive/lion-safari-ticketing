@@ -129,7 +129,10 @@ export async function createCashSaleAction(
     };
   }
 
-  redirect(`/counter/ticket/${bookingCode}`);
+  // `print=1` marks this as a fresh sale so the ticket screen can open the
+  // print dialog itself. Reaching the same page any other way (lookup, the
+  // recent-sales list, a reprint) carries no marker and stays manual.
+  redirect(`/counter/ticket/${bookingCode}?print=1`);
 }
 
 export type VoidSaleState = { error?: string; voided?: boolean };
