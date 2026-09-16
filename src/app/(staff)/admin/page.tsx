@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import Link from "next/link";
 
 import { db } from "@/db";
-import { boardingEvents, bookings, devices, paymentEvents } from "@/db/schema";
+import { boardingEvents, bookings, devices } from "@/db/schema";
 import { requirePageStaff } from "@/lib/auth/guards";
 import { formatPaise } from "@/lib/money";
 import { businessDate, formatLocalTime, formatVisitDate } from "@/lib/time";
@@ -60,11 +60,6 @@ export default async function AdminDashboard() {
     .from(bookings)
     .where(and(eq(bookings.status, "PENDING"), sql`${bookings.createdAt} >= ${dayStart}`));
 
-  const [mismatchStats] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(paymentEvents)
-    .where(sql`${paymentEvents.processingError} is not null`);
-
   // Staleness is evaluated against the database clock, not the render's clock.
   const scanners = await db
     .select({
@@ -81,7 +76,6 @@ export default async function AdminDashboard() {
   const boarded = boardingStats?.boarded ?? 0;
   const online = todayStats?.online ?? 0;
   const counter = todayStats?.counter ?? 0;
-  const needsReview = mismatchStats?.count ?? 0;
   const cashTaken = todayStats?.cashTaken ?? 0;
   const upiTaken = todayStats?.upiTaken ?? 0;
   const onlineTaken = todayStats?.onlineTaken ?? 0;
@@ -105,28 +99,6 @@ export default async function AdminDashboard() {
           ))}
         </nav>
       </div>
-
-      {/* The one thing that needs a person, surfaced above the numbers rather
-          than below them — a payment event that did not confirm a booking is
-          money in limbo, and it should not sit under a fold. */}
-      {needsReview > 0 ? (
-        <Link
-          href="/admin/reconciliation"
-          className="mt-6 flex items-start gap-3 rounded-xl border border-danger/40 bg-danger/5 p-4 transition-colors hover:border-danger"
-        >
-          <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-danger text-xs font-bold text-white">
-            !
-          </span>
-          <span>
-            <span className="block font-semibold text-danger">
-              {needsReview} payment {needsReview === 1 ? "event needs" : "events need"} review
-            </span>
-            <span className="text-muted mt-0.5 block text-sm">
-              These did not confirm a booking — usually an amount mismatch or an unknown order.
-            </span>
-          </span>
-        </Link>
-      ) : null}
 
       <div className="mt-6 grid gap-3 lg:grid-cols-3">
         <Stat

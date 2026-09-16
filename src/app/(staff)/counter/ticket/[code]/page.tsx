@@ -7,6 +7,7 @@ import { bookings, tickets } from "@/db/schema";
 import { TicketView } from "@/components/ticket-view";
 import { requirePageStaff } from "@/lib/auth/guards";
 import { businessDate } from "@/lib/time";
+import { AutoPrint } from "./auto-print";
 import { ClearDraftSaleKey } from "./clear-draft-sale-key";
 import { PrintButton } from "./print-button";
 import { VoidSaleForm } from "./void-sale-form";
@@ -19,9 +20,11 @@ export const metadata = { title: "Ticket — Lion Safari" };
  */
 export default async function CounterTicketPage({
   params,
+  searchParams,
 }: PageProps<"/counter/ticket/[code]">) {
   const staff = await requirePageStaff(["COUNTER"]);
   const { code } = await params;
+  const { print } = await searchParams;
 
   const [row] = await db
     .select({
@@ -49,6 +52,12 @@ export default async function CounterTicketPage({
     row.status === "ACTIVE" &&
     row.visitDate === businessDate() &&
     (staff.role === "ADMIN" || row.createdByStaffId === staff.id);
+
+  // Auto-print is for the sale that was just made, and only when the ticket is
+  // actually valid: the marker alone is not enough, because a void immediately
+  // after a sale re-renders this same URL and nobody wants a cancelled ticket
+  // printing itself.
+  const autoPrint = print === "1" && row.status === "ACTIVE";
 
   // The ticket itself no longer prints a status badge (a "Valid" stamp on
   // paper only says what was true at print time), so this banner is where
@@ -81,6 +90,7 @@ export default async function CounterTicketPage({
     */
     <main className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-4 py-6 print:block print:min-h-0">
       <ClearDraftSaleKey />
+      {autoPrint ? <AutoPrint /> : null}
 
       {/*
         Three columns, with the third left empty on purpose: it is what keeps
