@@ -3,9 +3,10 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
-import type { BookingStatus } from "@/db/schema";
+import type { BookingStatus, TicketStatus } from "@/db/schema";
 import {
   cancelBookingAction,
+  markBoardedAction,
   refundBookingAction,
   resendTicketAction,
   type AdminActionState,
@@ -47,22 +48,38 @@ export function BookingActions({
   status,
   channel,
   hasEmail,
+  ticketStatus,
+  visitorCount,
+  isToday,
 }: {
   bookingCode: string;
   status: BookingStatus;
   channel: "ONLINE" | "COUNTER";
   hasEmail: boolean;
+  ticketStatus: TicketStatus | undefined;
+  visitorCount: number;
+  /** Whether the visit date is today — the gate only admits on the day. */
+  isToday: boolean;
 }) {
   const [cancelState, cancel] = useActionState<AdminActionState, FormData>(cancelBookingAction, {});
   const [refundState, refund] = useActionState<AdminActionState, FormData>(refundBookingAction, {});
   const [resendState, resend] = useActionState<AdminActionState, FormData>(resendTicketAction, {});
+  const [boardState, board] = useActionState<AdminActionState, FormData>(markBoardedAction, {});
+
+  // Offered only where the gate itself would admit: a live ticket, on its own
+  // visit day. The server re-checks all of this — this just avoids showing a
+  // button whose only possible outcome is a rejection message.
+  const canMarkBoarded =
+    ticketStatus === "ACTIVE" &&
+    isToday &&
+    (status === "PAID" || status === "CASH_CONFIRMED");
 
   const canCancel = status === "PAID" || status === "CASH_CONFIRMED" || status === "PENDING";
   const canRefund = status === "PAID" && channel === "ONLINE";
   const canResend =
     hasEmail && (status === "PAID" || status === "CASH_CONFIRMED");
 
-  if (!canCancel && !canRefund && !canResend) return null;
+  if (!canCancel && !canRefund && !canResend && !canMarkBoarded) return null;
 
   return (
     <section className="mt-6 rounded-xl border border-line bg-surface p-5">
@@ -71,8 +88,34 @@ export function BookingActions({
         Every action here is recorded in the audit trail with your name.
       </p>
 
+      {canMarkBoarded ? (
+        <form action={board} className="mt-4">
+          <input type="hidden" name="bookingCode" value={bookingCode} />
+          <label className="mb-1 block text-sm font-medium" htmlFor="board-reason">
+            Mark as boarded
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <input
+              id="board-reason"
+              name="reason"
+              placeholder="Why the scanner could not be used"
+              required
+              minLength={3}
+              className="touch-target min-w-48 flex-1 rounded-lg border border-line px-3 text-base outline-none focus:border-brand"
+            />
+            <Submit label="Mark boarded" tone="neutral" />
+          </div>
+          <p className="text-muted mt-1 text-xs">
+            For when the gate scanner could not do it. Records all {visitorCount} visitor
+            {visitorCount === 1 ? "" : "s"} as boarded and uses up the ticket, exactly as a scan
+            would — it cannot then be scanned again.
+          </p>
+          <Message state={boardState} />
+        </form>
+      ) : null}
+
       {canResend ? (
-        <form action={resend} className="mt-4">
+        <form action={resend} className={canMarkBoarded ? "mt-5 border-t border-line pt-4" : "mt-4"}>
           <input type="hidden" name="bookingCode" value={bookingCode} />
           <Submit label="Re-send ticket email" tone="neutral" />
           <p className="text-muted mt-1 text-xs">

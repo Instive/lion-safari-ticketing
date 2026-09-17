@@ -114,7 +114,46 @@ async function main() {
   const unknown = await validateToken("this-token-does-not-exist");
   check("unknown token not valid", unknown.valid === false);
 
-  console.log("\n7. Pricing is server-computed");
+  console.log("\n7. Manual boarding by ticket id consumes the ticket exactly once");
+  // The admin portal's "mark as boarded" calls confirmBoarding with a ticketId
+  // and a fresh clientEventId, so the ticket lock — not idempotency — is what
+  // has to stop a second boarding. Verified here because it is the only guard
+  // standing between a mis-clicked button and a ticket boarded twice.
+  const manualKey = `verify-${randomUUID()}`;
+  const manual = await createCounterBooking({
+    visitorCount: 2,
+    idempotencyKey: manualKey,
+    actor,
+  });
+  const byId1 = await confirmBoarding({
+    ticketId: manual.ticket!.id,
+    boardedCount: 2,
+    clientEventId: randomUUID(),
+    actor,
+  });
+  const byId2 = await confirmBoarding({
+    ticketId: manual.ticket!.id,
+    boardedCount: 2,
+    clientEventId: randomUUID(),
+    actor,
+  });
+  check("manual boarding succeeded", byId1.ok === true);
+  check(
+    "second manual boarding refused as ALREADY_USED",
+    byId2.ok === false && byId2.reason === "ALREADY_USED",
+    byId2.ok === false ? byId2.message : "unexpectedly accepted",
+  );
+  const manualEvents = await db
+    .select()
+    .from(boardingEvents)
+    .where(eq(boardingEvents.ticketId, manual.ticket!.id));
+  check(
+    "exactly one boarding event from manual path",
+    manualEvents.length === 1,
+    `found ${manualEvents.length}`,
+  );
+
+  console.log("\n8. Pricing is server-computed");
   const [row] = await db.select().from(bookings).where(eq(bookings.id, first.booking.id));
   check(
     "counter booking carries no convenience fee",
