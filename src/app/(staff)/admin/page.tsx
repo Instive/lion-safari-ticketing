@@ -2,7 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import Link from "next/link";
 
 import { db } from "@/db";
-import { boardingEvents, bookings, devices } from "@/db/schema";
+import { boardingEvents, bookings, devices, tickets } from "@/db/schema";
 import { requirePageStaff } from "@/lib/auth/guards";
 import { formatPaise } from "@/lib/money";
 import { businessDate, formatLocalTime, formatVisitDate } from "@/lib/time";
@@ -22,8 +22,11 @@ const SECTIONS = [
 export default async function AdminDashboard() {
   await requirePageStaff(["ADMIN"]);
   const today = businessDate();
-  // Windows are computed by the database so every screen agrees on "now".
-  const dayStart = sql`now() - interval '24 hours'`;
+  // Computed by the database so every screen agrees on "now". This is a
+  // ROLLING 24-hour window, not the start of the park day — it backs the
+  // "awaiting payment" figure, which is deliberately a recency question
+  // ("anything stuck lately?") rather than a per-day one.
+  const last24h = sql`now() - interval '24 hours'`;
 
   const [todayStats] = await db
     .select({
@@ -47,18 +50,28 @@ export default async function AdminDashboard() {
       ),
     );
 
+  // Counted against the day the guest was booked FOR, not a rolling clock
+  // window, because this is compared directly against `expected` below — which
+  // is today's visit date. Filtering on `boardedAt >= now() - 24h` mixed
+  // populations: yesterday evening's scans measured against only today's
+  // bookings, which is what produced a "boarded" figure larger than "expected".
+  //
+  // `tickets.visitDate` is denormalized from the booking (see schema), so one
+  // join is enough, and a guest booked for today still counts as today however
+  // late in the evening they actually scanned.
   const [boardingStats] = await db
     .select({
       events: sql<number>`count(*)::int`,
       boarded: sql<number>`coalesce(sum(${boardingEvents.boardedCount}), 0)::int`,
     })
     .from(boardingEvents)
-    .where(sql`${boardingEvents.boardedAt} >= ${dayStart}`);
+    .innerJoin(tickets, eq(tickets.id, boardingEvents.ticketId))
+    .where(eq(tickets.visitDate, today));
 
   const [pendingStats] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(bookings)
-    .where(and(eq(bookings.status, "PENDING"), sql`${bookings.createdAt} >= ${dayStart}`));
+    .where(and(eq(bookings.status, "PENDING"), sql`${bookings.createdAt} >= ${last24h}`));
 
   // Staleness is evaluated against the database clock, not the render's clock.
   const scanners = await db
@@ -152,7 +165,7 @@ export default async function AdminDashboard() {
         <section className="rounded-xl border border-line bg-surface p-4">
           <div className="flex items-baseline justify-between gap-3">
             <h2 className="text-muted text-sm">Boarded at the gate</h2>
-            <p className="text-muted text-xs">{boardingStats?.events ?? 0} scans · 24h</p>
+            <p className="text-muted text-xs">{boardingStats?.events ?? 0} scans · today</p>
           </div>
           <p className="mt-1 text-2xl font-bold tabular-nums">
             {boarded}
@@ -268,9 +281,18 @@ function Stat({
   );
 }
 
-/** Boarding progress. Capped at 100% so a re-scan can never overflow the bar. */
+/**
+ * Boarding progress.
+ *
+ * The BAR is capped at 100% because a bar cannot be more than full. The
+ * NUMBER is not: now that both figures count the same day, more people
+ * boarding than were sold tickets for is a real problem worth seeing —
+ * double-scanning, or a manifest that disagrees with the gate — and rounding
+ * it down to a reassuring "100%" is how it would go unnoticed.
+ */
 function Meter({ value, total, label }: { value: number; total: number; label: string }) {
-  const pct = Math.min(100, Math.round((value / total) * 100));
+  const pct = Math.round((value / total) * 100);
+  const over = pct > 100;
   return (
     <div className="mt-3">
       <div
@@ -278,9 +300,15 @@ function Meter({ value, total, label }: { value: number; total: number; label: s
         role="img"
         aria-label={label}
       >
-        <div className="h-full rounded-full bg-ok transition-[width]" style={{ width: `${pct}%` }} />
+        <div
+          className={`h-full rounded-full transition-[width] ${over ? "bg-danger" : "bg-ok"}`}
+          style={{ width: `${Math.min(100, pct)}%` }}
+        />
       </div>
-      <p className="text-muted mt-2 text-xs">{pct}% of expected visitors</p>
+      <p className={`mt-2 text-xs ${over ? "font-medium text-danger" : "text-muted"}`}>
+        {pct}% of expected visitors
+        {over ? " — more scans than tickets sold, worth checking" : null}
+      </p>
     </div>
   );
 }
