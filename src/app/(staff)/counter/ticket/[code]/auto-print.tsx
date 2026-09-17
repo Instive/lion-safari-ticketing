@@ -8,12 +8,13 @@ import { useEffect, useState } from "react";
  *
  * Not a cosmetic delay. `onafterprint` fires when the dialog is DISMISSED as
  * well as when it prints, so without a pause, a staff member who cancels to
- * re-read the ticket would be thrown back to a blank sale screen — and the
- * ticket they wanted to check is then several taps away. Three seconds is long
- * enough to notice the countdown and stop it, short enough that a busy counter
- * never waits on it.
+ * re-read the ticket would be thrown back to a blank sale screen. One second
+ * is deliberately brief — the counter is the priority — which does mean the
+ * "Stay here" escape is only realistically catchable by someone already
+ * reaching for it. Reprinting from the lookup screen is the fallback when it
+ * is missed, and that path never auto-prints.
  */
-const RETURN_AFTER_MS = 3_000;
+const RETURN_AFTER_MS = 1_000;
 
 /**
  * Opens the print dialog by itself for the ticket of a sale that was JUST

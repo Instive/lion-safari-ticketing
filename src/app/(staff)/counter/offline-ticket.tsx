@@ -30,7 +30,7 @@ export type OfflineTicketData = {
  * it readable on thermal paper.
  */
 /** Matches the online ticket screen — see auto-print.tsx for why there is a pause. */
-const RETURN_AFTER_MS = 3_000;
+const RETURN_AFTER_MS = 1_000;
 
 export function OfflineTicket({
   ticket,
