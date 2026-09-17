@@ -6,7 +6,7 @@ import { db } from "@/db";
 import { auditLog, boardingEvents, bookings, payments, tickets } from "@/db/schema";
 import { requirePageStaff } from "@/lib/auth/guards";
 import { formatPaise } from "@/lib/money";
-import { formatLocalTime, formatVisitDate } from "@/lib/time";
+import { businessDate, formatLocalTime, formatVisitDate } from "@/lib/time";
 import { StatusPill } from "../../status-pill";
 import { BookingActions } from "./booking-actions";
 
@@ -122,6 +122,9 @@ export default async function BookingDetailPage({
         status={booking.status}
         channel={booking.channel}
         hasEmail={Boolean(booking.customerEmail)}
+        ticketStatus={ticket?.status}
+        visitorCount={booking.visitorCount}
+        isToday={booking.visitDate === businessDate()}
       />
 
       <section className="mt-8">
