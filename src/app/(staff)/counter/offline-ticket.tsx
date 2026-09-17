@@ -29,6 +29,9 @@ export type OfflineTicketData = {
  * it is the identical artefact, down to the error-correction level that keeps
  * it readable on thermal paper.
  */
+/** Matches the online ticket screen — see auto-print.tsx for why there is a pause. */
+const RETURN_AFTER_MS = 1_000;
+
 export function OfflineTicket({
   ticket,
   isTest,
@@ -44,6 +47,8 @@ export function OfflineTicket({
   // is a side effect that must happen exactly once, and re-rendering because
   // it happened would be pointless.
   const printed = useRef(false);
+  /** True once the print dialog has closed and the return is counting down. */
+  const [returning, setReturning] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,8 +63,9 @@ export function OfflineTicket({
   }, [ticket.token]);
 
   /*
-    Opens the print dialog once the ticket is actually printable, matching the
-    online sale screen so staff read one flow rather than two.
+    Opens the print dialog once the ticket is actually printable, then clears
+    back to a fresh sale when it closes — matching the online sale screen so
+    staff read one flow rather than two.
 
     Waiting on `qr` is the whole point of doing this separately from the online
     version: there the QR arrives server-rendered with the page, but here it is
@@ -70,8 +76,23 @@ export function OfflineTicket({
   useEffect(() => {
     if (!qr || printed.current) return;
     printed.current = true;
+
+    // Registered before printing: `window.print()` blocks until the dialog
+    // closes in some browsers, which would fire this before a listener added
+    // afterwards could hear it.
+    const onAfterPrint = () => setReturning(true);
+    window.addEventListener("afterprint", onAfterPrint);
     window.print();
+    return () => window.removeEventListener("afterprint", onAfterPrint);
   }, [qr]);
+
+  // `onDone` already clears the form back to a fresh sale, so returning is
+  // just calling it — there is no route to push here, the ticket is an overlay.
+  useEffect(() => {
+    if (!returning) return;
+    const timer = setTimeout(onDone, RETURN_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [returning, onDone]);
 
   return (
     /*
@@ -138,6 +159,24 @@ export function OfflineTicket({
               Next sale
             </button>
           </div>
+
+          {/* Same countdown as the online ticket screen: the dialog closing is
+              not proof the ticket was printed — it may have been dismissed —
+              so there is always a way to stay and look at it. */}
+          {returning ? (
+            <div className="mx-auto mt-3 flex max-w-md justify-center">
+              <div className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-2">
+                <p className="text-sm font-medium">Returning to the sale screen…</p>
+                <button
+                  type="button"
+                  onClick={() => setReturning(false)}
+                  className="rounded-lg border border-line px-3 py-1.5 text-sm font-semibold hover:bg-background"
+                >
+                  Stay here
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
