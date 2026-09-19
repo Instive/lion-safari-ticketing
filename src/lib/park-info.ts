@@ -43,6 +43,16 @@ export const FREE_ENTRY_NOTE = `${FREE_ENTRY_HEADLINE} — they do not need a ti
 
 export const PARK_TAGLINE = "Protect Wildlife. Preserve Nature. — M.C.Z.P Chhatbir";
 
+/**
+ * Where a guest writes for help with a booking or ticket.
+ *
+ * A fixed, public park address, so it lives here rather than behind
+ * `SUPPORT_PHONE` in env: that one is env-driven because the number differs
+ * per deployment, while this is the same on every environment and is safe to
+ * commit.
+ */
+export const SUPPORT_EMAIL = "chhatbir.lionsafari@gmail.com";
+
 /** The park's official social accounts. */
 export const PARK_SOCIAL = {
   instagram: "https://www.instagram.com/chhatbir_wildlifesafari/",

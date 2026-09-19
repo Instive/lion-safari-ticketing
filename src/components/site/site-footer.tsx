@@ -2,7 +2,13 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { supportPhone } from "@/lib/env";
-import { PARK_ADDRESS, PARK_SOCIAL, PARK_TAGLINE, PARK_TIMINGS } from "@/lib/park-info";
+import {
+  PARK_ADDRESS,
+  PARK_SOCIAL,
+  PARK_TAGLINE,
+  PARK_TIMINGS,
+  SUPPORT_EMAIL,
+} from "@/lib/park-info";
 
 export function SiteFooter() {
   // `supportPhone()` rather than `env.SUPPORT_PHONE`: this footer wraps the
@@ -105,6 +111,15 @@ export function SiteFooter() {
               Support: <span className="text-zoo-gold-light">{support}</span>
             </p>
           ) : null}
+          <p className="mt-1 text-sm text-zoo-cream/80">
+            Email:{" "}
+            <a
+              href={`mailto:${SUPPORT_EMAIL}`}
+              className="text-zoo-gold-light underline underline-offset-4 hover:text-zoo-cream"
+            >
+              {SUPPORT_EMAIL}
+            </a>
+          </p>
         </div>
       </div>
 
