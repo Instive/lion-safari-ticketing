@@ -24,9 +24,9 @@ export default function GroupsPage() {
         <Link href="/" className="text-muted text-sm hover:text-foreground">
           ← Back
         </Link>
-        <h1 className="mt-2 font-display text-4xl tracking-wide text-brand">School &amp; Groups</h1>
+        <h1 className="mt-2 font-display text-4xl tracking-wide text-brand">Schools &amp; Large Groups</h1>
         <p className="text-muted mt-3 text-sm">
-          Bringing a school, college or large group? Group rates depend on how many are coming, so
+          Bringing a school, institution or large group? Group rates depend on how many are coming, so
           tell us a little about your visit and we will come back with a price.
         </p>
       </div>
@@ -40,15 +40,15 @@ export default function GroupsPage() {
       >
         <Link
           href="/book"
-          className="rounded-lg px-3 py-2.5 text-center text-sm font-semibold transition-colors hover:bg-background hover:text-brand"
+          className="flex items-center justify-center rounded-lg px-3 py-2.5 text-center text-sm font-semibold transition-colors hover:bg-background hover:text-brand"
         >
-          Individual
+          Standard booking
         </Link>
         <span
           aria-current="page"
-          className="rounded-lg bg-brand px-3 py-2.5 text-center text-sm font-semibold text-white"
+          className="flex items-center justify-center rounded-lg bg-brand px-3 py-2.5 text-center text-sm font-semibold text-white"
         >
-          School / Group
+          Schools &amp; large groups
         </span>
       </div>
 
