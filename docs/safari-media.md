@@ -39,7 +39,7 @@ The uploaded photographs and video live on the gallery page. The homepage uses
 the cleaned hero and the existing safari illustrations, with a link to the gallery.
 The video element and its source are mounted only after pressing Play. It starts
 muted, uses native playback controls and inline playback, and never loops or
-loads automatically on page arrival. Hero motion has an explicit pause button
+loads automatically on page arrival. Hero motion is a four-second entrance animation with no on-image controls
 and is disabled under `prefers-reduced-motion`.
 
 The gallery mounts enlarged images only while open, supports arrow keys, Escape

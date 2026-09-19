@@ -321,6 +321,6 @@ body {
   .safari-hero-shade { background: linear-gradient(0deg, #0f1d13 0%, #0f1d13c0 20%, #0f1d1326 55%, #0f1d131a); }
 }
 @media (prefers-reduced-motion: no-preference) {
-  .safari-hero-image { animation: safari-breathe 24s ease-in-out infinite alternate; }
+  .safari-hero-image { animation: safari-breathe 4s ease-out both; }
   @keyframes safari-breathe { from { transform: scale(1); } to { transform: scale(1.045); } }
 }
