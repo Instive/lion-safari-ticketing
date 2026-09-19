@@ -48,6 +48,17 @@ export default function BookPage() {
         maxAdvanceDays={MAX_ADVANCE_DAYS}
         idempotencyKey={randomUUID()}
       />
+
+      {/* Placed after the form, not before it: the overwhelming majority of
+          visitors are booking for themselves, and a school trip is rare enough
+          that it should not interrupt the common path. */}
+      <p className="text-muted mt-6 border-t border-line pt-4 text-sm">
+        Booking for a school or a large group?{" "}
+        <Link href="/groups" className="text-brand underline">
+          Ask us for a group price
+        </Link>
+        .
+      </p>
     </main>
   );
 }

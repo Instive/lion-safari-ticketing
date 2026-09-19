@@ -73,3 +73,12 @@ export function limitTicketLookup(ip: string): Promise<RateLimitOutcome> {
 export function limitTicketRecovery(ip: string): Promise<RateLimitOutcome> {
   return consume("ticket-recovery", ip, 8, 60);
 }
+
+/**
+ * The public group-enquiry form. Tighter than the lookups because a submission
+ * writes a row and emails staff — an unthrottled form is a spam pipe into the
+ * admin's inbox and enquiry list.
+ */
+export function limitGroupEnquiry(ip: string): Promise<RateLimitOutcome> {
+  return consume("group-enquiry", ip, 5, 3600);
+}
