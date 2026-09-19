@@ -12,6 +12,9 @@ import { db, pool } from "@/db";
 import { boardingEvents, bookings, tickets } from "@/db/schema";
 import { confirmBoarding, validateToken } from "@/domain/boarding/confirm";
 import { createCounterBooking } from "@/domain/booking/create";
+import { resolveRate } from "@/domain/booking/pricing";
+import { createGroupEnquiry } from "@/domain/enquiry";
+import { DomainError } from "@/domain/errors";
 import type { Actor } from "@/domain/audit";
 import { assertNotProduction } from "./lib/guard";
 
@@ -153,7 +156,41 @@ async function main() {
     `found ${manualEvents.length}`,
   );
 
-  console.log("\n8. Pricing is server-computed");
+  console.log("\n8. A group enquiry is a lead, never a priced booking");
+  // The whole reason group pricing is an enquiry rather than a checkout option
+  // is that ONLINE must stay standard-fare only — a concession is verified by
+  // a person. These two checks are what stop that being quietly undone.
+  const enquiry = await createGroupEnquiry({
+    organisation: "Verify School",
+    contactName: "Verify Contact",
+    contactEmail: "verify@example.com",
+    contactPhone: "9999999999",
+    visitorCount: 120,
+    visitDate: null,
+    message: null,
+  });
+  check("enquiry recorded", Boolean(enquiry.id));
+  check("enquiry starts as NEW", enquiry.status === "NEW", enquiry.status);
+
+  const bookingsForEnquiry = await db
+    .select()
+    .from(bookings)
+    .where(eq(bookings.customerEmail, "verify@example.com"));
+  check(
+    "enquiry created no booking",
+    bookingsForEnquiry.length === 0,
+    `found ${bookingsForEnquiry.length}`,
+  );
+
+  let onlineConcessionRefused = false;
+  try {
+    await resolveRate({ kind: "CUSTOM", perVisitorPaise: 1 }, "ONLINE");
+  } catch (err) {
+    onlineConcessionRefused = err instanceof DomainError;
+  }
+  check("a non-standard rate is still refused on the ONLINE channel", onlineConcessionRefused);
+
+  console.log("\n9. Pricing is server-computed");
   const [row] = await db.select().from(bookings).where(eq(bookings.id, first.booking.id));
   check(
     "counter booking carries no convenience fee",

@@ -90,3 +90,38 @@ export async function setDeviceActiveAction(
       : `${updated.name} deactivated — it is locked out on its next sync.`,
   };
 }
+
+/**
+ * Reissue a device's key. The raw key is shown once and only its hash is stored,
+ * exactly as at registration — the previous key stops working immediately.
+ */
+export async function rotateDeviceKeyAction(
+  _prev: DeviceState,
+  formData: FormData,
+): Promise<DeviceState> {
+  const staff = await requireStaff(["ADMIN"]);
+  const id = String(formData.get("deviceId") ?? "");
+
+  const apiKey = generateApiKey();
+  const [updated] = await db
+    .update(devices)
+    .set({ apiKeyHash: sha256(apiKey) })
+    .where(eq(devices.id, id))
+    .returning();
+
+  if (!updated) return { error: "Device not found." };
+
+  await writeAudit(db, {
+    actor: { type: "STAFF", id: staff.id, name: staff.name },
+    action: "device.key_rotated",
+    entity: "device",
+    entityId: id,
+    after: { name: updated.name, type: updated.type },
+  });
+
+  revalidatePath("/admin/devices");
+  return {
+    apiKey,
+    success: `New key issued for ${updated.name}. The previous key no longer works.`,
+  };
+}

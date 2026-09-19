@@ -422,6 +422,54 @@ export const auditLog = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Group / institutional enquiries
+// ---------------------------------------------------------------------------
+
+export const enquiryStatus = pgEnum("enquiry_status", ["NEW", "CONTACTED", "CLOSED"]);
+
+/**
+ * A school or institution asking about a group visit.
+ *
+ * Note what this deliberately is NOT: a booking, and not a price. Group rates
+ * depend on volume and are agreed by a person, and a concession is verified in
+ * person by seeing a letterhead or an ID — which is exactly why
+ * `domain/booking/pricing.ts` refuses a non-standard rate on the ONLINE
+ * channel at all. So this table holds a LEAD and nothing more: no amount, no
+ * ticket, no seat held. Once a price is agreed the sale is made through the
+ * counter, where concession pricing already exists with its cap and its audit
+ * trail.
+ *
+ * `visitorCount` and `visitDate` are what the enquirer SAID, captured to make
+ * the call-back useful. Neither reserves anything, and both may change by the
+ * time a sale happens.
+ */
+export const groupEnquiries = pgTable(
+  "group_enquiries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organisation: text("organisation").notNull(),
+    contactName: text("contact_name").notNull(),
+    contactEmail: text("contact_email").notNull(),
+    contactPhone: text("contact_phone").notNull(),
+    /** Approximate group size, as stated by the enquirer. Not a reservation. */
+    visitorCount: integer("visitor_count").notNull(),
+    /** Preferred date, if they named one. Null means "flexible / not yet known". */
+    visitDate: date("visit_date"),
+    message: text("message"),
+    status: enquiryStatus("status").notNull().default("NEW"),
+    /** Filled in by whoever follows this up, so a handover keeps the context. */
+    staffNote: text("staff_note"),
+    handledByStaffId: uuid("handled_by_staff_id").references(() => staffUsers.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check("group_enquiries_count_positive", sql`${t.visitorCount} > 0`),
+    index("group_enquiries_status_idx").on(t.status, t.createdAt),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Rate limiting
 // ---------------------------------------------------------------------------
 
@@ -447,9 +495,11 @@ export type RateCategory = typeof rateCategories.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type Ticket = typeof tickets.$inferSelect;
 export type BoardingEvent = typeof boardingEvents.$inferSelect;
+export type GroupEnquiry = typeof groupEnquiries.$inferSelect;
 
 export type BookingStatus = (typeof bookingStatus.enumValues)[number];
 export type CounterTender = (typeof counterTender.enumValues)[number];
 export type TicketStatus = (typeof ticketStatus.enumValues)[number];
 export type PaymentStatus = (typeof paymentStatus.enumValues)[number];
 export type StaffRole = (typeof staffRole.enumValues)[number];
+export type EnquiryStatus = (typeof enquiryStatus.enumValues)[number];

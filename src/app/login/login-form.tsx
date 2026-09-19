@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { loginAction, type LoginState } from "./actions";
@@ -20,6 +20,8 @@ function SubmitButton() {
 
 export function LoginForm() {
   const [state, formAction] = useActionState<LoginState, FormData>(loginAction, {});
+
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <form action={formAction} className="space-y-4 rounded-xl border border-line bg-surface p-6">
@@ -41,14 +43,17 @@ export function LoginForm() {
         <label htmlFor="password" className="mb-1 block text-sm font-medium">
           Password
         </label>
+        <div className="relative">
         <input
           id="password"
           name="password"
-          type="password"
+          type={showPassword ? "text" : "password"}
           autoComplete="current-password"
           required
-          className="touch-target w-full rounded-lg border border-line px-3 text-base outline-none focus:border-brand"
+          className="touch-target w-full rounded-lg border border-line pl-3 pr-20 text-base outline-none focus:border-brand"
         />
+        <button type="button" aria-controls="password" aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-1 right-1 rounded-md px-3 text-sm font-semibold text-brand hover:bg-brand/5">{showPassword ? "Hide" : "Show"}</button>
+        </div>
       </div>
 
       {state.error ? (

@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 
 import {
   registerDeviceAction,
+  rotateDeviceKeyAction,
   setDeviceActiveAction,
   type DeviceState,
 } from "./actions";
@@ -36,6 +37,7 @@ export function DeviceManager({ devices }: { devices: DeviceRow[] }) {
     {},
   );
   const [toggleState, toggle] = useActionState<DeviceState, FormData>(setDeviceActiveAction, {});
+  const [rotateState, rotate] = useActionState<DeviceState, FormData>(rotateDeviceKeyAction, {});
 
   return (
     <>
@@ -80,6 +82,24 @@ export function DeviceManager({ devices }: { devices: DeviceRow[] }) {
         ) : null}
       </form>
 
+      {rotateState.apiKey ? (
+        <div className="mt-4 rounded-lg border border-ok/40 bg-ok/5 p-4">
+          <p className="text-sm font-semibold text-ok">{rotateState.success}</p>
+          <p className="mt-2 rounded-lg bg-surface px-3 py-2 font-mono text-sm break-all select-all">
+            {rotateState.apiKey}
+          </p>
+          <p className="text-muted mt-2 text-xs">
+            Hand this to the scanner staff member now and have them enter it at /scanner. It is
+            stored only as a hash, so it cannot be shown again — reissue the key if it is lost.
+          </p>
+        </div>
+      ) : null}
+      {rotateState.error ? (
+        <p role="alert" className="mt-4 rounded-lg bg-danger/5 px-3 py-2 text-sm text-danger">
+          {rotateState.error}
+        </p>
+      ) : null}
+
       {toggleState.success ? (
         <p className="mt-4 rounded-lg bg-ok/5 px-3 py-2 text-sm text-ok">{toggleState.success}</p>
       ) : null}
@@ -105,23 +125,44 @@ export function DeviceManager({ devices }: { devices: DeviceRow[] }) {
               </p>
             </div>
 
-            <form action={toggle} className="flex items-center gap-3">
-              <input type="hidden" name="deviceId" value={d.id} />
-              <input type="hidden" name="active" value={d.active ? "false" : "true"} />
-              <span
-                className={`rounded-lg px-2 py-1 text-xs font-semibold ${
-                  d.active ? "bg-ok/10 text-ok" : "bg-danger/10 text-danger"
-                }`}
-              >
-                {d.active ? "Active" : "Deactivated"}
-              </span>
-              <button
-                type="submit"
-                className="touch-target rounded-lg border border-line px-3 text-sm font-medium hover:bg-background"
-              >
-                {d.active ? "Deactivate" : "Reactivate"}
-              </button>
-            </form>
+            <div className="flex flex-wrap items-center gap-3">
+              <form action={rotate}>
+                <input type="hidden" name="deviceId" value={d.id} />
+                <button
+                  type="submit"
+                  onClick={(e) => {
+                    if (
+                      !confirm(
+                        `Issue a new key for ${d.name}? The key it uses now will stop working immediately.`,
+                      )
+                    ) {
+                      e.preventDefault();
+                    }
+                  }}
+                  className="touch-target rounded-lg border border-line px-3 text-sm font-medium hover:bg-background"
+                >
+                  Reissue key
+                </button>
+              </form>
+
+              <form action={toggle} className="flex items-center gap-3">
+                <input type="hidden" name="deviceId" value={d.id} />
+                <input type="hidden" name="active" value={d.active ? "false" : "true"} />
+                <span
+                  className={`rounded-lg px-2 py-1 text-xs font-semibold ${
+                    d.active ? "bg-ok/10 text-ok" : "bg-danger/10 text-danger"
+                  }`}
+                >
+                  {d.active ? "Active" : "Deactivated"}
+                </span>
+                <button
+                  type="submit"
+                  className="touch-target rounded-lg border border-line px-3 text-sm font-medium hover:bg-background"
+                >
+                  {d.active ? "Deactivate" : "Reactivate"}
+                </button>
+              </form>
+            </div>
           </li>
         ))}
       </ul>

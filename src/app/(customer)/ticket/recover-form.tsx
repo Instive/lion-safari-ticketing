@@ -45,6 +45,8 @@ export function RecoverForm() {
         <input
           id="phone"
           name="phone"
+          type="tel"
+          pattern="[0-9]{10}"
           inputMode="numeric"
           autoComplete="tel"
           placeholder="10-digit number"

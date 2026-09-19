@@ -231,3 +231,77 @@ body {
     transition: none;
   }
 }
+
+/* Shared interaction foundation; ticket printing keeps its own physical layout. */
+@layer base {
+  html { scroll-padding-top: 7rem; }
+  body { line-height: 1.6; }
+  :where(a, button, input, select, textarea, summary):focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 4px;
+  }
+  :where(button, a, input, select, textarea) { -webkit-tap-highlight-color: transparent; }
+  button:not(:disabled), summary { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  input, select, textarea { max-width: 100%; }
+  textarea { resize: vertical; }
+  h1, h2, h3 { text-wrap: balance; }
+  :where(button, a) { touch-action: manipulation; }
+}
+
+@media screen {
+  .customer-content { background: #faf8f2; }
+  .customer-content > main:not(:has(.safari-hero)) { padding-block: clamp(2rem, 5vw, 4rem); }
+  .customer-content :where(.bg-surface.border) {
+    box-shadow: 0 4px 20px #1b362408;
+  }
+  .customer-content :where(input:not([type="checkbox"]):not([type="hidden"]), textarea, select) {
+    background-color: #fff;
+    border-radius: .75rem;
+    transition: border-color 160ms, box-shadow 160ms;
+  }
+  .customer-content :where(input, textarea, select):focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px #1b362415;
+  }
+  .customer-content :where(section, form).border { border-radius: 1.25rem; }
+  .customer-content .text-xs { font-size: .8125rem; }
+  .staff-content { background: linear-gradient(180deg, #eef2ec, var(--background) 20rem); }
+  .staff-content main { min-width: 0; }
+  .staff-content :where(section, form).bg-surface { box-shadow: 0 3px 16px #14201a05; }
+  .staff-content thead { background: #edf1ea; }
+  .staff-content tbody tr:hover { background: #f4f7f1; }
+  .staff-content .overflow-x-auto { overscroll-behavior-x: contain; }
+  .staff-content :where(button, a.rounded-lg, a.rounded-xl) { min-height: 2.75rem; }
+  .staff-content :where(a.rounded-lg, a.rounded-xl) { display: inline-flex; align-items: center; }
+  .booking-layout { display: grid; gap: 1.5rem; align-items: start; }
+  .booking-details, .booking-checkout { min-width: 0; display: grid; gap: 1.25rem; }
+  .booking-checkout { border: 1px solid var(--border); border-radius: 1.25rem; padding: 1.25rem; background: white; box-shadow: 0 12px 40px #1b36240a; }
+  .booking-checkout > section { border: 0; padding: 0; box-shadow: none !important; }
+  .booking-checkout > label { box-shadow: none; background: #f5f7f2; }
+  .booking-checkout > section h2 { font-size: 1.25rem; }
+  .booking-checkout dl > div:last-child { color: var(--brand); font-size: 1.5rem; }
+  .gallery-dialog { margin: auto; width: min(64rem, calc(100% - 2rem)); max-height: calc(100dvh - 2rem); border-radius: 1.25rem; padding: 1rem; background: var(--zoo-forest-deep); color: white; }
+  .gallery-dialog::backdrop { background: #08130dea; backdrop-filter: blur(6px); }
+  @media (min-width: 768px) {
+    .booking-layout { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 2rem; }
+    .booking-checkout { position: sticky; top: 6rem; }
+  }
+  @media (max-width: 639px) {
+    .staff-content input:not([type="checkbox"]), .staff-content select { font-size: 1rem; }
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  :where(button, a) { transition: background-color 160ms, color 160ms, border-color 160ms, box-shadow 160ms, transform 160ms; }
+  button:active:not(:disabled) { transform: translateY(1px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+  .reveal[data-shown="false"] { opacity: 1; transform: none; }
+}
+
+/* Keep focus rings visible even on fields using outline-none utilities. */
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}

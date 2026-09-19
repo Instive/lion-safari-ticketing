@@ -14,9 +14,10 @@ export default async function StaffLayout({ children }: LayoutProps<"/">) {
   return (
     <>
       <EnvBanner />
+      <a href="#staff-content" className="skip-link no-print">Skip to workspace</a>
       <header className="no-print border-b border-line bg-surface">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-          <div className="flex items-center gap-4">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
             {/* The staff launcher, not the public home — on a split host "/"
                 is the customer site and is not served here. */}
             <Link href="/staff" aria-label="Staff home">
@@ -32,7 +33,7 @@ export default async function StaffLayout({ children }: LayoutProps<"/">) {
             />
           </div>
 
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
             <span className="text-muted hidden sm:inline">
               {staff.name} · {staff.role.toLowerCase()}
             </span>
@@ -53,7 +54,7 @@ export default async function StaffLayout({ children }: LayoutProps<"/">) {
         </div>
       </header>
 
-      <div className="flex-1">{children}</div>
+      <div id="staff-content" tabIndex={-1} className="staff-content flex-1 min-w-0">{children}</div>
     </>
   );
 }

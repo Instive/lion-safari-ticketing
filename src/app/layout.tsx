@@ -29,8 +29,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  // The scanner and counter apps are fixed-layout tools, not zoomable documents.
-  maximumScale: 1,
+  userScalable: true,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

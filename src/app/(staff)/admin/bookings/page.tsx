@@ -96,7 +96,7 @@ export default async function AdminBookingsPage({ searchParams }: PageProps<"/ad
           <h2 className="text-muted mb-3 text-sm font-medium">Day by day</h2>
           <ul className="space-y-1.5">
             {byDay.map((day) => (
-              <li key={day.date} className="flex items-center gap-3 text-sm">
+              <li key={day.date} className="flex flex-wrap items-center gap-3 text-sm">
                 <Link
                   href={`/admin/bookings?${filtersToQuery(filters, {
                     preset: "custom",
@@ -126,7 +126,8 @@ export default async function AdminBookingsPage({ searchParams }: PageProps<"/ad
         </section>
       ) : null}
 
-      <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-surface">
+      <p className="mt-5 text-sm text-muted lg:hidden">Scroll the table sideways to see all booking details.</p>
+      <div role="region" aria-label="Booking results" tabIndex={0} className="mt-4 overflow-x-auto rounded-xl border border-line bg-surface">
         <table className="w-full min-w-[52rem] text-sm">
           <thead className="border-b border-line text-left">
             <tr className="text-muted">

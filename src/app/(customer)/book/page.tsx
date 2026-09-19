@@ -24,12 +24,39 @@ export default function BookPage() {
   const closedForToday = !isTodayStillBookable();
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 py-8">
+    <main className="mx-auto w-full max-w-5xl px-4 py-8">
       <div className="mb-6">
         <Link href="/" className="text-muted text-sm hover:text-foreground">
           ← Back
         </Link>
         <h1 className="mt-2 font-display text-4xl tracking-wide text-brand">Book Your Safari</h1>
+        <p className="mt-2 text-muted">One ticket, both habitats. Choose your visit and book in a few simple steps.</p>
+      </div>
+
+      {/*
+        A two-way choice rather than a link buried under the form: someone
+        booking for a school needs to know BEFORE filling in a standard-fare
+        form that their price is different, otherwise they either pay the wrong
+        amount or abandon halfway. Rendered as tabs because these are two
+        genuine routes to a visit, not a primary action and a footnote.
+      */}
+      <div
+        role="navigation"
+        aria-label="How are you booking?"
+        className="mb-6 grid max-w-md grid-cols-2 gap-1 rounded-xl border border-line bg-surface p-1"
+      >
+        <span
+          aria-current="page"
+          className="rounded-lg bg-brand px-3 py-2.5 text-center text-sm font-semibold text-white"
+        >
+          Individual
+        </span>
+        <Link
+          href="/groups"
+          className="rounded-lg px-3 py-2.5 text-center text-sm font-semibold transition-colors hover:bg-background hover:text-brand"
+        >
+          School / Group
+        </Link>
       </div>
 
       {closedForToday ? (

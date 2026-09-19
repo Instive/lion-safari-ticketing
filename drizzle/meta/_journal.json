@@ -36,6 +36,13 @@
       "when": 1787571291243,
       "tag": "0004_tiny_prodigy",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789810524866,
+      "tag": "0005_hot_champions",
+      "breakpoints": true
     }
   ]
 }
