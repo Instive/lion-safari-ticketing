@@ -43,21 +43,26 @@ export default function BookPage() {
       <div
         role="navigation"
         aria-label="How are you booking?"
-        className="mb-6 grid max-w-md grid-cols-2 gap-1 rounded-xl border border-line bg-surface p-1"
+        className="mb-3 grid max-w-md grid-cols-2 gap-1 rounded-xl border border-line bg-surface p-1"
       >
         <span
           aria-current="page"
-          className="rounded-lg bg-brand px-3 py-2.5 text-center text-sm font-semibold text-white"
+          className="flex items-center justify-center rounded-lg bg-brand px-3 py-2.5 text-center text-sm font-semibold text-white"
         >
-          Individual
+          Standard booking
         </span>
         <Link
           href="/groups"
-          className="rounded-lg px-3 py-2.5 text-center text-sm font-semibold transition-colors hover:bg-background hover:text-brand"
+          className="flex items-center justify-center rounded-lg px-3 py-2.5 text-center text-sm font-semibold transition-colors hover:bg-background hover:text-brand"
         >
-          School / Group
+          Schools &amp; large groups
         </Link>
       </div>
+
+      <p className="mb-6 text-sm text-muted">
+        Standard booking is for solo visitors, families and friends. Schools, institutions and
+        larger groups can request a quote under Schools &amp; large groups.
+      </p>
 
       {closedForToday ? (
         <p className="mb-4 rounded-xl border border-line bg-surface p-4 text-sm">

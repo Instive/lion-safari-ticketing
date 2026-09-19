@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import { AnnouncementTicker } from "@/components/site/announcement-ticker";
 import { FaqAccordion, type FaqItem } from "@/components/site/faq-accordion";
+import { HeroMedia } from "@/components/site/hero-media";
+import { bookableRange, nextOpenDay } from "@/domain/booking/visit-date";
 import { Reveal } from "@/components/site/reveal";
 import { StatCounter } from "@/components/site/stat-counter";
 import { env } from "@/lib/env";
@@ -15,10 +17,13 @@ export default function HomePage() {
   // Every fare shown on this page comes from the same server-side figure the
   // booking form charges, so marketing copy can never drift from the price.
   const fare = formatPaiseCompact(env.TICKET_PRICE_PAISE);
-  const today = formatVisitDate(businessDate());
+  const firstVisitDate = nextOpenDay(bookableRange().min);
+  const bookingAvailability = firstVisitDate === businessDate()
+    ? "Book for today"
+    : `Next visit: ${formatVisitDate(firstVisitDate)}`;
 
   const notices = [
-    `Online booking is open for today, ${today} — ${fare} per visitor.`,
+    `${bookingAvailability} — ${fare} per visitor.`,
     "Park timings: Tuesday to Sunday, 9:00 AM – 5:00 PM. Closed on Mondays.",
     "Last entry is one hour before closing.",
     "Cash tickets are also issued at the counter on arrival.",
@@ -68,33 +73,16 @@ export default function HomePage() {
       <AnnouncementTicker notices={notices} />
 
       {/* ---------- Hero ---------- */}
-      <section className="safari-hero relative flex min-h-[480px] w-full items-end overflow-hidden bg-zoo-forest-deep sm:h-[68svh] sm:max-h-[760px]">
-        <div className="absolute inset-0">
-          <Image
-            src="/Wildlife_safari_web.png"
-            alt="A lion resting in the forest at Chhatbir Zoo, with safari jeep and wildlife photos below"
-            fill
-            priority
-            sizes="100vw"
-            className="hero-pan object-cover object-[center_18%]"
-          />
-        </div>
-        {/*
-          Two scrims: one lifting the copy off the bottom of the photograph, and
-          one down the left so the headline never has to compete with the
-          typography printed into the artwork itself.
-        */}
-        <div className="absolute inset-0 bg-gradient-to-t from-zoo-forest-deep via-zoo-forest-deep/55 to-zoo-forest-deep/20" />
-        <div className="absolute inset-0 bg-gradient-to-r from-zoo-forest-deep/90 via-zoo-forest-deep/45 to-transparent" />
-
-        <div className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-10 pt-24 sm:pb-14">
+      <section aria-labelledby="hero-heading" className="safari-hero relative isolate flex w-full items-center overflow-hidden bg-zoo-forest-deep">
+        <HeroMedia />
+        <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-10 pt-72 sm:px-6 sm:py-24">
           <p className="text-xs font-medium uppercase tracking-[0.16em] text-zoo-gold-light sm:text-sm sm:tracking-[0.25em]">
             Mahendra Choudhury Zoological Park
           </p>
-          <h1 className="mt-2 font-display text-5xl leading-[0.9] tracking-wide text-white sm:text-7xl">
-            Lion &amp; Deer Safari
+          <h1 id="hero-heading" className="mt-4 max-w-xl font-display text-6xl leading-[0.95] tracking-wide text-white sm:text-7xl lg:text-8xl">
+            Lion &amp; Deer<br /><span className="text-zoo-gold-light">Safari</span>
           </h1>
-          <p className="mt-3 max-w-xl text-sm text-zoo-cream/90 sm:text-base">
+          <p className="mt-5 max-w-md text-base leading-relaxed text-zoo-cream/90">
             Ride through open enclosures at Chhatbir Zoo and see Asiatic lions, spotted deer and
             more in their natural habitat.
           </p>
@@ -108,19 +96,19 @@ export default function HomePage() {
             </Link>
             <Link
               href="/ticket"
-              className="touch-target grid place-items-center rounded-xl border border-zoo-cream/40 bg-white/5 px-7 text-base font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/15"
+              className="touch-target flex items-center justify-center gap-2 rounded-xl border border-zoo-cream/40 bg-white/5 px-7 text-base font-semibold text-white backdrop-blur-sm hover:bg-white/15"
             >
               Find My Ticket
             </Link>
           </div>
 
           {/* The official "fare board": today's entry, the fare and the hours. */}
-          <dl className="mt-6 flex flex-col gap-2 text-sm text-zoo-cream/85 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
+          <dl className="mt-7 flex max-w-lg flex-col items-start gap-2 text-sm text-zoo-cream/85">
             <div className="flex items-center gap-2 rounded-lg border border-zoo-cream/20 bg-zoo-forest-deep/50 px-3 py-2 backdrop-blur-sm">
               <TicketIcon />
               <dt className="sr-only">Entry and fare</dt>
               <dd>
-                Entry today, {today} —{" "}
+                {bookingAvailability} ·{" "}
                 <strong className="font-semibold text-zoo-gold-light">{fare}</strong> per visitor
               </dd>
             </div>
@@ -147,7 +135,7 @@ export default function HomePage() {
               <ServiceTile href="/book" title="Book Tickets" note="Pay online, get a QR ticket">
                 <TicketIcon size={22} />
               </ServiceTile>
-              <ServiceTile href="/groups" title="School & Groups" note="Ask for a group price">
+              <ServiceTile href="/groups" title="Schools & large groups" note="Ask for a group price">
                 <GroupIcon />
               </ServiceTile>
               <ServiceTile href="/ticket" title="Find My Ticket" note="Booking code + mobile">
@@ -180,14 +168,14 @@ export default function HomePage() {
       </section>
 
       {/* ---------- Meet the wild ---------- */}
-      <section className="mx-auto max-w-6xl px-4 py-14 sm:py-16">
+      <section aria-labelledby="safari-heading" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-14 sm:py-20">
         <Reveal>
           <div className="grid items-center gap-10 lg:grid-cols-2">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">
                 Meet the Wild
               </p>
-              <h2 className="mt-2 font-display text-4xl tracking-wide text-brand sm:text-5xl">
+              <h2 id="safari-heading" className="mt-2 font-display text-4xl tracking-wide text-brand sm:text-5xl">
                 Two Safaris, One Journey
               </h2>
               <p className="text-muted mt-4">
@@ -220,10 +208,10 @@ export default function HomePage() {
             <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-zoo-cream-strong bg-zoo-cream shadow-sm">
               <Image
                 src="/lion_and_deer_safari_zoo.jpeg"
-                alt="Lion and Deer Safari promotional poster showing the safari bus, a lion and a deer"
+                alt="Lion and Deer Safari artwork showing the safari bus, a lion and a deer"
                 fill
-                sizes="(min-width: 1024px) 50vw, 100vw"
-                className="object-contain p-2 transition-transform duration-500 hover:scale-[1.03]"
+                sizes="(min-width: 1152px) 540px, (min-width: 1024px) 50vw, 100vw"
+                className="object-contain p-2"
               />
             </div>
           </div>
@@ -231,43 +219,31 @@ export default function HomePage() {
       </section>
 
       {/* ---------- The experience ---------- */}
-      <section className="bg-zoo-cream/60">
+      <section aria-labelledby="journey-heading" className="bg-zoo-cream/60">
         <div className="mx-auto max-w-6xl px-4 py-14 sm:py-16">
           <Reveal>
             <div className="grid items-center gap-10 lg:grid-cols-2">
               <div className="relative order-2 mx-auto aspect-[3/4] w-full max-w-sm overflow-hidden rounded-2xl border border-zoo-cream-strong bg-surface shadow-sm lg:order-1">
                 <Image
                   src="/Wildlife_safari_chhatbir.jpeg"
-                  alt="Story panels: entering the gate, meeting a lion, a spotted deer, and the safari jeep on the trail"
+                  alt="Illustrated safari journey through the gate, lion and deer habitats, and the trail"
                   fill
-                  sizes="(min-width: 1024px) 40vw, 100vw"
+                  sizes="(min-width: 640px) 384px, 100vw"
                   className="object-contain p-2"
                 />
               </div>
-
               <div className="order-1 lg:order-2">
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">
-                  What to Expect
-                </p>
-                <h2 className="mt-2 font-display text-4xl tracking-wide text-brand sm:text-5xl">
-                  From Gate to Grassland
-                </h2>
-                <ol className="text-muted mt-6 space-y-5">
-                  <Step n={1} title="Arrive at the gate">
-                    Show your QR ticket — on your phone or printed — at the boarding gate.
-                  </Step>
-                  <Step n={2} title="Board the safari vehicle">
-                    Vehicles run through the safari route at regular intervals through the day.
-                  </Step>
-                  <Step n={3} title="Meet the king">
-                    Pass slowly through the open lion enclosure, and stop for photos where
-                    it&rsquo;s safe to.
-                  </Step>
-                  <Step n={4} title="Discover the deer habitat">
-                    See several deer species sharing one open habitat before returning to the
-                    main zoo.
-                  </Step>
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-accent">What to Expect</p>
+                <h2 id="journey-heading" className="mt-2 font-display text-4xl tracking-wide text-brand sm:text-5xl">From Gate to Grassland</h2>
+                <ol className="mt-6 space-y-5 text-muted">
+                  <Step n={1} title="Arrive at the gate">Show your QR ticket on your phone or a printed copy.</Step>
+                  <Step n={2} title="Board together">Your group travels together in the safari vehicle.</Step>
+                  <Step n={3} title="Meet the lions">Watch the lion enclosure from the safety of the vehicle.</Step>
+                  <Step n={4} title="Discover the deer">Continue through the deer habitat before returning to the zoo.</Step>
                 </ol>
+                <Link href="/gallery" className="mt-7 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-brand underline underline-offset-4">
+                  Photos &amp; videos from the park <span aria-hidden="true">→</span>
+                </Link>
               </div>
             </div>
           </Reveal>

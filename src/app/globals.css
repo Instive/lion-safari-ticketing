@@ -304,3 +304,23 @@ body {
   outline: 3px solid var(--accent);
   outline-offset: 3px;
 }
+
+/* The photo keeps the visual story; headings remain selectable HTML text. */
+.safari-hero { min-height: 640px; }
+.safari-hero-image { object-position: 68% center; }
+.safari-hero-shade {
+  background: linear-gradient(90deg, #0f1d13f2 0%, #0f1d13b3 32%, #0f1d1326 65%, #0f1d1310), linear-gradient(0deg, #0f1d1380, transparent 35%);
+}
+@media (min-width: 1024px) {
+  .safari-hero { min-height: min(760px, 82svh); }
+}
+@media (max-width: 639px) {
+  .safari-hero { min-height: 0; }
+  .safari-hero-visual { bottom: auto; height: 480px; }
+  .safari-hero-image { object-position: 69% top; }
+  .safari-hero-shade { background: linear-gradient(0deg, #0f1d13 0%, #0f1d13c0 20%, #0f1d1326 55%, #0f1d131a); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .safari-hero-image { animation: safari-breathe 4s ease-out both; }
+  @keyframes safari-breathe { from { transform: scale(1); } to { transform: scale(1.045); } }
+}
