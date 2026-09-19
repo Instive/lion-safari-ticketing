@@ -76,7 +76,9 @@ export default async function LookupPage({ searchParams }: PageProps<"/counter/l
       </div>
 
       <form className="flex gap-2">
+        <label htmlFor="ticket-search" className="sr-only">Booking code, phone number or name</label>
         <input
+          id="ticket-search"
           name="q"
           defaultValue={query}
           placeholder="Booking code, phone number or name"
@@ -96,8 +98,8 @@ export default async function LookupPage({ searchParams }: PageProps<"/counter/l
         </button>
       </form>
 
-      <div className="mt-5 mb-2 flex items-baseline justify-between gap-3">
-        <p className="text-muted text-xs uppercase tracking-wide">
+      <div className="mt-6 mb-3 flex flex-wrap items-baseline justify-between gap-3">
+        <p className="text-muted min-w-0 break-words text-sm">
           {query ? `Matching “${query}”` : "Today’s counter sales"}
           {results.length > 0 ? ` · ${results.length}` : ""}
         </p>
@@ -126,34 +128,32 @@ export default async function LookupPage({ searchParams }: PageProps<"/counter/l
           )}
         </div>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
+        <ul className="grid auto-rows-fr gap-4 sm:grid-cols-2">
           {results.map((r) => (
-            <li key={r.bookingCode}>
+            <li key={r.bookingCode} className="min-w-0">
               <Link
                 href={`/counter/ticket/${r.bookingCode}`}
-                className="flex h-full flex-col rounded-xl border border-line bg-surface p-4 transition-colors hover:border-brand"
+                className="flex h-full w-full min-w-0 flex-col items-stretch rounded-xl border border-line bg-surface p-5 transition-colors hover:border-brand hover:shadow-sm"
               >
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-mono font-bold tracking-wider">{r.bookingCode}</span>
                   <StatusChip status={r.status} />
                 </div>
 
-                <p className="mt-2 text-sm font-semibold tabular-nums">
+                <p className="mt-4 text-base font-semibold tabular-nums">
                   {r.visitorCount} visitor{r.visitorCount === 1 ? "" : "s"} ·{" "}
                   {formatPaise(r.amountTotal)}
                 </p>
-                <p className="text-muted mt-0.5 text-xs">
+                <p className="text-muted mt-1 text-sm">
                   {formatVisitDate(r.visitDate)} · {formatLocalTime(r.createdAt)}
                   {r.counterTender ? ` · ${r.counterTender.toLowerCase()}` : ""}
                 </p>
 
-                {r.customerName || r.customerPhone ? (
-                  <p className="text-muted mt-1.5 truncate text-xs">
-                    {[r.customerName, r.customerPhone].filter(Boolean).join(" · ")}
-                  </p>
-                ) : null}
+                <p className="text-muted mt-2 mb-4 break-words text-sm">
+                  {[r.customerName, r.customerPhone].filter(Boolean).join(" · ") || "No contact details recorded"}
+                </p>
 
-                <span className="text-brand mt-3 text-xs font-semibold">Open &amp; reprint →</span>
+                <span className="text-brand mt-auto border-t border-line pt-3 text-sm font-semibold">Open &amp; reprint →</span>
               </Link>
             </li>
           ))}
@@ -181,7 +181,7 @@ function StatusChip({ status }: { status: TicketStatus }) {
 
   return (
     <span
-      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${tone}`}
+      className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-wide ${tone}`}
     >
       {label}
     </span>

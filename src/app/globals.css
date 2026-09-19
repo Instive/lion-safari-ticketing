@@ -273,7 +273,6 @@ body {
   .staff-content tbody tr:hover { background: #f4f7f1; }
   .staff-content .overflow-x-auto { overscroll-behavior-x: contain; }
   .staff-content :where(button, a.rounded-lg, a.rounded-xl) { min-height: 2.75rem; }
-  .staff-content :where(a.rounded-lg, a.rounded-xl) { display: inline-flex; align-items: center; }
   .booking-layout { display: grid; gap: 1.5rem; align-items: start; }
   .booking-details, .booking-checkout { min-width: 0; display: grid; gap: 1.25rem; }
   .booking-checkout { border: 1px solid var(--border); border-radius: 1.25rem; padding: 1.25rem; background: white; box-shadow: 0 12px 40px #1b36240a; }
