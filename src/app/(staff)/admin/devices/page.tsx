@@ -25,8 +25,10 @@ export default async function DevicesPage() {
       </div>
 
       <p className="text-muted mb-5 text-sm">
-        The gate scanner authenticates with a device key. Deactivating a device locks it out on its
-        next sync — use that if a terminal is lost or stolen.
+        The gate scanner authenticates with a device key. Keys are stored only as hashes and are
+        shown once, so an existing key cannot be looked up here — to give a staff member a key,
+        reissue it and hand over the new one. Deactivating a device locks it out on its next sync —
+        use that if a terminal is lost or stolen.
       </p>
 
       <DeviceManager
