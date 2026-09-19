@@ -67,7 +67,7 @@ export function EnquiryForm({
 
   if (state.sent) {
     return (
-      <div className="rounded-xl border border-ok/30 bg-ok/5 p-5">
+      <div role="status" className="rounded-xl border border-ok/30 bg-ok/5 p-5">
         <p className="font-semibold text-ok">Enquiry sent</p>
         <p className="text-muted mt-1 text-sm">
           Thank you — we have your details and will be in touch within two working days with a
@@ -78,7 +78,7 @@ export function EnquiryForm({
   }
 
   return (
-    <form action={action} className="grid gap-4">
+    <form action={action} className="grid gap-5 rounded-2xl border border-line bg-surface p-5 sm:p-8">
       <Field
         label="School or organisation"
         name="organisation"

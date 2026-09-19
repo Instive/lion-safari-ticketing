@@ -68,7 +68,7 @@ export default function HomePage() {
       <AnnouncementTicker notices={notices} />
 
       {/* ---------- Hero ---------- */}
-      <section className="relative flex min-h-[560px] w-full items-end overflow-hidden bg-zoo-forest-deep sm:h-[78svh] sm:max-h-[760px]">
+      <section className="safari-hero relative flex min-h-[480px] w-full items-end overflow-hidden bg-zoo-forest-deep sm:h-[68svh] sm:max-h-[760px]">
         <div className="absolute inset-0">
           <Image
             src="/Wildlife_safari_web.png"

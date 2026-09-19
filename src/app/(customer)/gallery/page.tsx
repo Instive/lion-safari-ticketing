@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { GalleryGrid } from "@/components/site/gallery-grid";
 import Link from "next/link";
 
 export const metadata = {
@@ -40,16 +40,7 @@ export default function GalleryPage() {
         </p>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {IMAGES.map((img) => (
-          <div
-            key={img.src}
-            className={`relative aspect-square overflow-hidden rounded-2xl border border-zoo-cream-strong bg-zoo-cream ${img.span}`}
-          >
-            <Image src={img.src} alt={img.alt} fill className="object-cover" />
-          </div>
-        ))}
-      </div>
+      <GalleryGrid images={IMAGES} />
 
       <div className="mt-10 text-center">
         <Link

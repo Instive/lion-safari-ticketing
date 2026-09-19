@@ -17,11 +17,11 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
     <>
       <EnvBanner />
-      <main className="flex-1 grid place-items-center p-6">
+      <main className="flex-1 grid place-items-center bg-zoo-cream/40 p-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-4 text-center">
           <BrandMark size="lg" />
-          <p className="text-muted text-sm">Staff sign in</p>
+          <h1 className="text-2xl font-semibold text-brand">Staff sign in</h1>
         </div>
 
         {expired ? (

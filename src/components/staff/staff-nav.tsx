@@ -15,7 +15,7 @@ export function StaffNav({ items }: { items: { href: string; label: string }[] }
   const pathname = usePathname();
 
   return (
-    <nav className="flex gap-1 text-sm">
+    <nav aria-label="Staff workspace" className="flex flex-wrap gap-1 text-sm">
       {items.map((item) => {
         const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
         return (
@@ -23,9 +23,9 @@ export function StaffNav({ items }: { items: { href: string; label: string }[] }
             key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}
-            className={`rounded-lg px-2.5 py-1.5 transition-colors ${
+            className={`inline-flex min-h-11 items-center rounded-lg px-3 py-2 transition-colors ${
               active
-                ? "bg-background font-semibold text-foreground"
+                ? "bg-brand font-semibold text-white"
                 : "text-muted hover:text-foreground"
             }`}
           >

@@ -177,7 +177,7 @@ export function BookingForm({
   idempotencyKey,
 }: Props) {
   const [state, formAction] = useActionState<BookingState, FormData>(startBookingAction, {});
-  const [visitors, setVisitors] = useState(2);
+  const [visitors, setVisitors] = useState(Math.min(2, maxVisitors));
   const [visitDate, setVisitDate] = useState(defaultVisitDate);
   const [confirmed, setConfirmed] = useState(false);
 
@@ -217,169 +217,180 @@ export function BookingForm({
   const total = subtotal + convenienceFeePaise;
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} className="booking-layout">
       <input type="hidden" name="visitorCount" value={visitors} />
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
 
-      <section className="rounded-xl border border-line bg-surface p-5 shadow-sm">
-        <StepHeading
-          step={1}
-          title="When are you visiting?"
-          hint={`Book up to ${maxAdvanceDays} days ahead. Closed on Mondays.`}
-        />
+      <div className="booking-details">
+        <section className="rounded-xl border border-line bg-surface p-5 shadow-sm">
+          <StepHeading
+            step={1}
+            title="When are you visiting?"
+            hint={`Book up to ${maxAdvanceDays} days ahead. Closed on Mondays.`}
+          />
 
-        <input
-          type="date"
-          name="visitDate"
-          aria-label="Visit date"
-          value={visitDate}
-          min={minVisitDate}
-          max={maxVisitDate}
-          required
-          onChange={(e) => setVisitDate(e.target.value)}
-          className="touch-target w-full rounded-lg border border-line bg-background px-3 text-base outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/20"
-        />
+          <input
+            type="date"
+            name="visitDate"
+            aria-label="Visit date"
+            aria-invalid={closedDaySelected}
+            aria-describedby={closedDaySelected ? "closed-date-error" : undefined}
+            value={visitDate}
+            min={minVisitDate}
+            max={maxVisitDate}
+            required
+            onChange={(e) => setVisitDate(e.target.value)}
+            className="touch-target w-full rounded-lg border border-line bg-background px-3 text-base outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/20"
+          />
 
-        {closedDaySelected ? (
-          <p role="alert" className="text-danger mt-2 text-sm font-medium">
-            The park is closed on Mondays. Please choose another date.
+          {closedDaySelected ? (
+            <p id="closed-date-error" role="alert" className="text-danger mt-2 text-sm font-medium">
+              The park is closed on Mondays. Please choose another date.
+            </p>
+          ) : null}
+        </section>
+
+        <section className="rounded-xl border border-line bg-surface p-5 shadow-sm">
+          <StepHeading step={2} title="How many visitors?" />
+
+          {/* The single most common way to overpay is counting a toddler, so this
+              is a callout rather than a line of helper text. */}
+          <div className="mb-5 flex items-start gap-2.5 rounded-lg border border-brand/25 bg-brand/5 p-3">
+            <span aria-hidden className="text-lg leading-none">
+              👶
+            </span>
+            <p className="text-sm leading-snug">
+              <span className="font-semibold text-brand">
+                Children under the age of 3 years — enter free.
+              </span>{" "}
+              <span className="text-muted">Please do not include them in the count below.</span>
+            </p>
+          </div>
+
+          <div className="flex items-center justify-center gap-5">
+            <button
+              type="button"
+              onClick={() => setVisitors((v) => Math.max(1, v - 1))}
+              className="touch-target w-16 rounded-xl border border-line text-2xl font-bold hover:bg-brand/5 disabled:opacity-30"
+              disabled={visitors <= 1}
+              aria-label="One fewer visitor"
+            >
+              −
+            </button>
+            <output aria-live="polite" aria-label="Visitor count" className="min-w-20 text-center text-4xl font-bold tabular-nums">
+              {visitors}
+            </output>
+            <button
+              type="button"
+              onClick={() => setVisitors((v) => Math.min(maxVisitors, v + 1))}
+              className="touch-target w-16 rounded-xl border border-line text-2xl font-bold hover:bg-brand/5 disabled:opacity-30"
+              disabled={visitors >= maxVisitors}
+              aria-label="One more visitor"
+            >
+              +
+            </button>
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-line bg-surface p-5 shadow-sm">
+          <StepHeading step={3} title="Your details" />
+
+          <div className="space-y-4">
+            <Field
+              label="Full name"
+              name="customerName"
+              autoComplete="name"
+              required
+              maxLength={120}
+            />
+            <Field
+              label="Mobile number"
+              name="customerPhone"
+              type="tel"
+              pattern="[0-9]{10}"
+              placeholder="10-digit number"
+              inputMode="numeric"
+              autoComplete="tel"
+              required
+              maxLength={10}
+            />
+            <Field
+              label="Email address"
+              name="customerEmail"
+              type="email"
+              autoComplete="email"
+              required
+              maxLength={200}
+              hint="Your ticket is sent here."
+            />
+          </div>
+        </section>
+
+      </div>
+      <div className="booking-checkout">
+        {/* The full payable amount is shown before payment (spec §17). */}
+        <section className="rounded-xl border border-line bg-surface p-5 shadow-sm">
+          <h2 className="mb-4 font-semibold">Booking summary</h2>
+          <dl className="space-y-2.5 text-sm">
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted">Visit date</dt>
+              <dd className="text-right font-medium">{formatPickedDate(visitDate)}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted">
+                {visitors} {visitors === 1 ? "visitor" : "visitors"} ×{" "}
+                {formatPaise(perVisitorPaise)}
+              </dt>
+              <dd className="font-medium tabular-nums">{formatPaise(subtotal)}</dd>
+            </div>
+            {convenienceFeePaise > 0 ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted">Convenience fee</dt>
+                <dd className="font-medium tabular-nums">{formatPaise(convenienceFeePaise)}</dd>
+              </div>
+            ) : null}
+            <div className="flex justify-between gap-4 border-t border-line pt-3 text-lg font-bold">
+              <dt>Total payable</dt>
+              <dd className="tabular-nums">{formatPaise(total)}</dd>
+            </div>
+          </dl>
+        </section>
+
+        {state.error ? (
+          <p
+            role="alert"
+            className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 text-sm font-medium text-danger"
+          >
+            {state.error}
           </p>
         ) : null}
-      </section>
 
-      <section className="rounded-xl border border-line bg-surface p-5 shadow-sm">
-        <StepHeading step={2} title="How many visitors?" />
-
-        {/* The single most common way to overpay is counting a toddler, so this
-            is a callout rather than a line of helper text. */}
-        <div className="mb-5 flex items-start gap-2.5 rounded-lg border border-brand/25 bg-brand/5 p-3">
-          <span aria-hidden className="text-lg leading-none">
-            👶
+        {/*
+          A deliberate pause before money moves. The visit date and visitor count
+          are both fixed at booking and neither is refundable, so this is the last
+          point at which a wrong date costs nothing to fix.
+        */}
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm transition-colors has-[:checked]:border-brand/40 has-[:checked]:bg-brand/5">
+          <input
+            type="checkbox"
+            checked={confirmed}
+            onChange={(e) => setConfirmed(e.target.checked)}
+            className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-brand,#14603c)]"
+          />
+          <span className="text-sm leading-snug">
+            I confirm the visit date, visitor count and contact details above are correct.
+            Tickets are valid only for the date shown and are non-refundable.
           </span>
-          <p className="text-sm leading-snug">
-            <span className="font-semibold text-brand">
-              Children under the age of 3 years — enter free.
-            </span>{" "}
-            <span className="text-muted">Please do not include them in the count below.</span>
-          </p>
-        </div>
+        </label>
 
-        <div className="flex items-center justify-center gap-5">
-          <button
-            type="button"
-            onClick={() => setVisitors((v) => Math.max(1, v - 1))}
-            className="touch-target w-16 rounded-xl border border-line text-2xl font-bold"
-            aria-label="One fewer visitor"
-          >
-            −
-          </button>
-          <output className="min-w-20 text-center text-4xl font-bold tabular-nums">
-            {visitors}
-          </output>
-          <button
-            type="button"
-            onClick={() => setVisitors((v) => Math.min(maxVisitors, v + 1))}
-            className="touch-target w-16 rounded-xl border border-line text-2xl font-bold"
-            aria-label="One more visitor"
-          >
-            +
-          </button>
-        </div>
-      </section>
+        {!confirmed ? <p className="text-sm text-muted">Review your details and tick the confirmation above to continue.</p> : null}
+        <PayButton total={formatPaise(total)} disabled={!confirmed || closedDaySelected} />
 
-      <section className="rounded-xl border border-line bg-surface p-5 shadow-sm">
-        <StepHeading step={3} title="Your details" />
-
-        <div className="space-y-4">
-          <Field
-            label="Full name"
-            name="customerName"
-            autoComplete="name"
-            required
-            maxLength={120}
-          />
-          <Field
-            label="Mobile number"
-            name="customerPhone"
-            placeholder="10-digit number"
-            inputMode="numeric"
-            autoComplete="tel"
-            required
-            maxLength={10}
-          />
-          <Field
-            label="Email address"
-            name="customerEmail"
-            type="email"
-            autoComplete="email"
-            required
-            maxLength={200}
-            hint="Your ticket is sent here."
-          />
-        </div>
-      </section>
-
-      {/* The full payable amount is shown before payment (spec §17). */}
-      <section className="rounded-xl border border-line bg-surface p-5 shadow-sm">
-        <h2 className="mb-4 font-semibold">Booking summary</h2>
-        <dl className="space-y-2.5 text-sm">
-          <div className="flex justify-between gap-4">
-            <dt className="text-muted">Visit date</dt>
-            <dd className="text-right font-medium">{formatPickedDate(visitDate)}</dd>
-          </div>
-          <div className="flex justify-between gap-4">
-            <dt className="text-muted">
-              {visitors} {visitors === 1 ? "visitor" : "visitors"} ×{" "}
-              {formatPaise(perVisitorPaise)}
-            </dt>
-            <dd className="font-medium tabular-nums">{formatPaise(subtotal)}</dd>
-          </div>
-          {convenienceFeePaise > 0 ? (
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted">Convenience fee</dt>
-              <dd className="font-medium tabular-nums">{formatPaise(convenienceFeePaise)}</dd>
-            </div>
-          ) : null}
-          <div className="flex justify-between gap-4 border-t border-line pt-3 text-lg font-bold">
-            <dt>Total payable</dt>
-            <dd className="tabular-nums">{formatPaise(total)}</dd>
-          </div>
-        </dl>
-      </section>
-
-      {state.error ? (
-        <p
-          role="alert"
-          className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3 text-sm font-medium text-danger"
-        >
-          {state.error}
+        <p className="text-muted text-center text-xs leading-relaxed">
+          Pay securely by UPI or card. Your ticket is issued once payment is confirmed,
+          and emailed to you straight away.
         </p>
-      ) : null}
-
-      {/*
-        A deliberate pause before money moves. The visit date and visitor count
-        are both fixed at booking and neither is refundable, so this is the last
-        point at which a wrong date costs nothing to fix.
-      */}
-      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm transition-colors has-[:checked]:border-brand/40 has-[:checked]:bg-brand/5">
-        <input
-          type="checkbox"
-          checked={confirmed}
-          onChange={(e) => setConfirmed(e.target.checked)}
-          className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-brand,#14603c)]"
-        />
-        <span className="text-sm leading-snug">
-          I confirm the visit date, visitor count and contact details above are correct.
-          Tickets are valid only for the date shown and are non-refundable.
-        </span>
-      </label>
-
-      <PayButton total={formatPaise(total)} disabled={!confirmed || closedDaySelected} />
-
-      <p className="text-muted text-center text-xs leading-relaxed">
-        Pay securely by UPI or card. Your ticket is issued once payment is confirmed,
-        and emailed to you straight away.
-      </p>
+      </div>
     </form>
   );
 }

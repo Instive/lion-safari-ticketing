@@ -19,7 +19,7 @@ export default function GroupsPage() {
   const { min, max } = bookableRange();
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 py-8">
+    <main className="mx-auto w-full max-w-2xl px-4 py-8">
       <div className="mb-6">
         <Link href="/" className="text-muted text-sm hover:text-foreground">
           ← Back
@@ -34,21 +34,18 @@ export default function GroupsPage() {
       {/* Mirrors the switcher on /book so the two routes to a visit look like
           one choice made twice, not two unrelated pages. */}
       <div
-        role="tablist"
+        role="navigation"
         aria-label="How are you booking?"
         className="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-line bg-surface p-1"
       >
         <Link
           href="/book"
-          role="tab"
-          aria-selected="false"
           className="rounded-lg px-3 py-2.5 text-center text-sm font-semibold transition-colors hover:bg-background hover:text-brand"
         >
           Individual
         </Link>
         <span
-          role="tab"
-          aria-selected="true"
+          aria-current="page"
           className="rounded-lg bg-brand px-3 py-2.5 text-center text-sm font-semibold text-white"
         >
           School / Group
