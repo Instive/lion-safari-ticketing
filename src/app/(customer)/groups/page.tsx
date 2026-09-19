@@ -31,6 +31,30 @@ export default function GroupsPage() {
         </p>
       </div>
 
+      {/* Mirrors the switcher on /book so the two routes to a visit look like
+          one choice made twice, not two unrelated pages. */}
+      <div
+        role="tablist"
+        aria-label="How are you booking?"
+        className="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-line bg-surface p-1"
+      >
+        <Link
+          href="/book"
+          role="tab"
+          aria-selected="false"
+          className="rounded-lg px-3 py-2.5 text-center text-sm font-semibold transition-colors hover:bg-background hover:text-brand"
+        >
+          Individual
+        </Link>
+        <span
+          role="tab"
+          aria-selected="true"
+          className="rounded-lg bg-brand px-3 py-2.5 text-center text-sm font-semibold text-white"
+        >
+          School / Group
+        </span>
+      </div>
+
       <div className="mb-6 rounded-xl border border-line bg-surface p-4 text-sm">
         <p className="font-medium">How it works</p>
         <ol className="text-muted mt-2 grid gap-1.5 list-decimal pl-4">
@@ -41,11 +65,8 @@ export default function GroupsPage() {
       </div>
 
       <p className="text-muted mb-4 text-sm">
-        Groups of fewer than {GROUP_ENQUIRY_MIN_VISITORS} are usually quicker to{" "}
-        <Link href="/book" className="text-brand underline">
-          book online
-        </Link>{" "}
-        at the standard fare.
+        Fewer than {GROUP_ENQUIRY_MIN_VISITORS} visitors? Booking online at the standard fare is
+        usually quicker than waiting for a quote.
       </p>
 
       <EnquiryForm

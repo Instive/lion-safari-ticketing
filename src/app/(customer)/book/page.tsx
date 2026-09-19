@@ -32,6 +32,35 @@ export default function BookPage() {
         <h1 className="mt-2 font-display text-4xl tracking-wide text-brand">Book Your Safari</h1>
       </div>
 
+      {/*
+        A two-way choice rather than a link buried under the form: someone
+        booking for a school needs to know BEFORE filling in a standard-fare
+        form that their price is different, otherwise they either pay the wrong
+        amount or abandon halfway. Rendered as tabs because these are two
+        genuine routes to a visit, not a primary action and a footnote.
+      */}
+      <div
+        role="tablist"
+        aria-label="How are you booking?"
+        className="mb-6 grid grid-cols-2 gap-1 rounded-xl border border-line bg-surface p-1"
+      >
+        <span
+          role="tab"
+          aria-selected="true"
+          className="rounded-lg bg-brand px-3 py-2.5 text-center text-sm font-semibold text-white"
+        >
+          Individual
+        </span>
+        <Link
+          href="/groups"
+          role="tab"
+          aria-selected="false"
+          className="rounded-lg px-3 py-2.5 text-center text-sm font-semibold transition-colors hover:bg-background hover:text-brand"
+        >
+          School / Group
+        </Link>
+      </div>
+
       {closedForToday ? (
         <p className="mb-4 rounded-xl border border-line bg-surface p-4 text-sm">
           Today&rsquo;s safari has closed. You can book for tomorrow onwards.
@@ -48,17 +77,6 @@ export default function BookPage() {
         maxAdvanceDays={MAX_ADVANCE_DAYS}
         idempotencyKey={randomUUID()}
       />
-
-      {/* Placed after the form, not before it: the overwhelming majority of
-          visitors are booking for themselves, and a school trip is rare enough
-          that it should not interrupt the common path. */}
-      <p className="text-muted mt-6 border-t border-line pt-4 text-sm">
-        Booking for a school or a large group?{" "}
-        <Link href="/groups" className="text-brand underline">
-          Ask us for a group price
-        </Link>
-        .
-      </p>
     </main>
   );
 }

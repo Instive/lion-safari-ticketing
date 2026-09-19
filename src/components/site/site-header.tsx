@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { href: "/", label: "Home" },
   { href: "/visit", label: "Plan Your Visit" },
   { href: "/gallery", label: "Gallery" },
+  { href: "/groups", label: "School & Groups" },
   { href: "/ticket", label: "Find My Ticket" },
 ];
 
@@ -19,6 +20,12 @@ const NAV_LINKS = [
  * the navigation bar itself stays pinned, with the Book Tickets action always
  * visible — even with the mobile menu closed — since that's the one thing this
  * whole site exists to make easy to find.
+ *
+ * "School & Groups" sits in the nav rather than beside that button on purpose:
+ * a second prominent call to action next to the first one would split the
+ * attention the booking button is there to hold, for a case that is real but
+ * uncommon. The prominent placement for it is the tab on /book itself, where
+ * someone is already deciding how they are booking.
  */
 export function SiteHeader() {
   const [open, setOpen] = useState(false);

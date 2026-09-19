@@ -143,9 +143,12 @@ export default function HomePage() {
             Online Services
           </h2>
           <Reveal>
-            <ul className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            <ul className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
               <ServiceTile href="/book" title="Book Tickets" note="Pay online, get a QR ticket">
                 <TicketIcon size={22} />
+              </ServiceTile>
+              <ServiceTile href="/groups" title="School & Groups" note="Ask for a group price">
+                <GroupIcon />
               </ServiceTile>
               <ServiceTile href="/ticket" title="Find My Ticket" note="Booking code + mobile">
                 <SearchIcon />
@@ -347,8 +350,15 @@ export default function HomePage() {
               Find My Ticket
             </Link>
           </div>
+          <p className="mt-5 text-sm text-zoo-cream/75">
+            Bringing a school or a large group?{" "}
+            <Link href="/groups" className="font-semibold text-zoo-gold-light underline">
+              Ask us for a group price
+            </Link>
+            .
+          </p>
           {env.SUPPORT_PHONE ? (
-            <p className="mt-6 text-sm text-zoo-cream/60">Need help? Call {env.SUPPORT_PHONE}</p>
+            <p className="mt-4 text-sm text-zoo-cream/60">Need help? Call {env.SUPPORT_PHONE}</p>
           ) : null}
         </div>
       </section>
@@ -455,6 +465,17 @@ function ClockIcon() {
     <Icon>
       <circle cx="12" cy="12" r="8.5" />
       <path d="M12 7.5V12l3 1.8" />
+    </Icon>
+  );
+}
+
+function GroupIcon() {
+  return (
+    <Icon size={22}>
+      <circle cx="9" cy="8.5" r="3" />
+      <path d="M3.5 19a5.5 5.5 0 0 1 11 0" />
+      <path d="M16 6.2a3 3 0 0 1 0 5.6" />
+      <path d="M17.5 14.4a5.5 5.5 0 0 1 3 4.6" />
     </Icon>
   );
 }
