@@ -321,9 +321,16 @@ export async function bookingTotals(filters: BookingFilters): Promise<BookingTot
     .from(bookings)
     .where(whereFor(filters));
 
+  // Counted over confirmed bookings only, so it measures the same population as
+  // `visitors` above and the two can be read against each other. A blank from a
+  // till's ticket book is admissible at the gate before it is sold
+  // (domain/booking/reserve.ts); counting its scan here while its visitors are
+  // absent from `visitors` is what let "boarded" exceed "expected". Blanks that
+  // were boarded but never reconciled into a sale are not dropped on the floor
+  // — `bookDiscrepancies` in domain/reports/ticket-books.ts reports them.
   const [boarded] = await db
     .select({
-      boarded: sql<number>`coalesce(sum(${boardingEvents.boardedCount}), 0)::int`,
+      boarded: sql<number>`coalesce(sum(${boardingEvents.boardedCount}) filter (where ${bookings.status} in ('PAID','CASH_CONFIRMED')), 0)::int`,
     })
     .from(boardingEvents)
     .innerJoin(tickets, eq(tickets.id, boardingEvents.ticketId))

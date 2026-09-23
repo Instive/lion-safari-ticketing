@@ -61,6 +61,17 @@ export default async function CustomerTicketPage({
 
   if (!row) notFound();
 
+  /*
+   * An unsold blank in a counter's ticket book is not a customer booking.
+   *
+   * It is a pre-issued RESERVED row with an ACTIVE ticket and no buyer
+   * (domain/booking/reserve.ts). Without this it renders here as a perfectly
+   * ordinary ticket — valid, scannable, ₹0 — to anyone who reaches the URL.
+   * Treated as not found, exactly like a code that does not exist, so this page
+   * never becomes a way to obtain free entry by guessing codes.
+   */
+  if (row.status === "RESERVED") notFound();
+
   if (row.status === "PENDING") {
     return (
       <Shell>

@@ -34,6 +34,7 @@ export default async function CounterTicketPage({
       customerName: bookings.customerName,
       visitDate: bookings.visitDate,
       createdByStaffId: bookings.createdByStaffId,
+      bookingStatus: bookings.status,
       token: tickets.token,
       status: tickets.status,
       issuedAt: tickets.issuedAt,
@@ -44,6 +45,23 @@ export default async function CounterTicketPage({
     .limit(1);
 
   if (!row) notFound();
+
+  /*
+   * An unsold blank is not a ticket yet.
+   *
+   * RESERVED means this row is stock in a till's ticket book: a real ACTIVE
+   * ticket worth ₹0 that nobody has bought (domain/booking/reserve.ts). The
+   * lookup screen no longer lists them, but the code is guessable and this URL
+   * is the one that prints a QR, so refusing here is what actually stops a
+   * blank being printed and handed to a guest for free.
+   *
+   * `notFound()` rather than an explanatory banner, deliberately: to everyone
+   * except the till that is holding it, a blank genuinely is not a ticket, and
+   * a page that named the status would be telling staff about stock they have
+   * no way to act on from here. Selling one goes through the counter form,
+   * which is what turns it into a real sale at a real price.
+   */
+  if (row.bookingStatus === "RESERVED") notFound();
 
   // Same eligibility the server action itself re-checks — computed here only
   // to decide whether to show the void affordance at all, never trusted as

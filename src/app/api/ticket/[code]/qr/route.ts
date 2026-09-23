@@ -33,13 +33,21 @@ export async function GET(
   }
 
   const [row] = await db
-    .select({ token: tickets.token })
+    .select({ token: tickets.token, bookingStatus: bookings.status })
     .from(bookings)
     .innerJoin(tickets, eq(tickets.bookingId, bookings.id))
     .where(eq(bookings.bookingCode, code.toUpperCase()))
     .limit(1);
 
   if (!row) {
+    return new Response("Not found", { status: 404 });
+  }
+
+  // An unsold blank from a counter's ticket book has a real, scannable token
+  // (domain/booking/reserve.ts) and no buyer to email it to. Nothing legitimate
+  // ever requests one here, and rendering it would hand out a working gate
+  // credential, so it is 404 like any other code that is not a sale.
+  if (row.bookingStatus === "RESERVED") {
     return new Response("Not found", { status: 404 });
   }
 

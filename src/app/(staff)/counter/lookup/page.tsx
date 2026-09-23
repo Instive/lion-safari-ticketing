@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 import Link from "next/link";
 
 import { db } from "@/db";
@@ -40,6 +40,22 @@ export default async function LookupPage({ searchParams }: PageProps<"/counter/l
       )
     : and(eq(bookings.channel, "COUNTER"), eq(bookings.visitDate, today));
 
+  /*
+   * Never an unsold blank.
+   *
+   * A counter device's ticket book is stocked with pre-issued RESERVED
+   * bookings — real rows, with a real ACTIVE ticket, worth ₹0 until someone
+   * actually buys one (domain/booking/reserve.ts). They are stock, not a sale
+   * anybody made, so they have no business on a screen whose entire job is
+   * finding a ticket a guest has already paid for: they showed up as "Valid" at
+   * ₹0.00 with no name against them, hundreds of them, burying the real sales
+   * and offering staff a reprint of a ticket nobody bought.
+   *
+   * Filtered at the query, not hidden in the markup, so the 30/40-row limit is
+   * spent on sales rather than on blanks that would never be rendered.
+   */
+  const sold = sql`${bookings.status} <> 'RESERVED'`;
+
   const results = await db
     .select({
       bookingCode: bookings.bookingCode,
@@ -54,7 +70,7 @@ export default async function LookupPage({ searchParams }: PageProps<"/counter/l
     })
     .from(bookings)
     .innerJoin(tickets, eq(tickets.bookingId, bookings.id))
-    .where(matches)
+    .where(and(matches, sold))
     .orderBy(desc(bookings.createdAt))
     .limit(query ? 30 : 40);
 
