@@ -51,10 +51,28 @@ export default async function LookupPage({ searchParams }: PageProps<"/counter/l
    * ₹0.00 with no name against them, hundreds of them, burying the real sales
    * and offering staff a reprint of a ticket nobody bought.
    *
-   * Filtered at the query, not hidden in the markup, so the 30/40-row limit is
-   * spent on sales rather than on blanks that would never be rendered.
+   * Filtered at the query, not hidden in the markup, so the row limit is spent
+   * on sales rather than on blanks that would never be rendered.
    */
   const sold = sql`${bookings.status} <> 'RESERVED'`;
+
+  /*
+   * Browsing today shows the WHOLE day; only a search is capped.
+   *
+   * The 40-row cap silently hid most of a real day — a busy gate sells a few
+   * hundred counter tickets, so "Today's counter sales" showed the most recent
+   * forty and gave no sign there were more. Staff looking for a sale from that
+   * morning scrolled to the end of the list and concluded it did not exist,
+   * which is the one question this screen has to answer correctly.
+   *
+   * A day's counter sales are a few hundred small rows, so rendering all of
+   * them costs little and is bounded by the day itself. The cap stays on SEARCH
+   * because that matches across every date and is genuinely unbounded — a
+   * common name or a short digit string can match the whole history, and a
+   * search is a narrowing act anyway: the answer to too many results is a
+   * better query, not a longer page.
+   */
+  const rowLimit = query ? 60 : 2000;
 
   const results = await db
     .select({
@@ -72,7 +90,7 @@ export default async function LookupPage({ searchParams }: PageProps<"/counter/l
     .innerJoin(tickets, eq(tickets.bookingId, bookings.id))
     .where(and(matches, sold))
     .orderBy(desc(bookings.createdAt))
-    .limit(query ? 30 : 40);
+    .limit(rowLimit);
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6">
@@ -118,6 +136,13 @@ export default async function LookupPage({ searchParams }: PageProps<"/counter/l
         <p className="text-muted min-w-0 break-words text-sm">
           {query ? `Matching “${query}”` : "Today’s counter sales"}
           {results.length > 0 ? ` · ${results.length}` : ""}
+          {/*
+            A full page means the list was cut off, and staff have no other way
+            to tell. Saying so is what stops "it is not in the list" being read
+            as "it was never sold" — the same wrong conclusion the old 40-row
+            cap invited on the browse view.
+          */}
+          {results.length === rowLimit ? " (first " + rowLimit + " — narrow the search)" : ""}
         </p>
         {query ? (
           <Link
