@@ -181,6 +181,44 @@ export function BookingForm({
   const [visitDate, setVisitDate] = useState(defaultVisitDate);
   const [confirmed, setConfirmed] = useState(false);
 
+  /*
+   * What is currently in the visitor-count box, as text.
+   *
+   * Kept separate from `visitors` so typing can pass through states that are
+   * not yet a number. Clearing the field to retype it is the obvious one: bind
+   * the input straight to `visitors` and the empty box instantly refills with
+   * "1", so a guest who wants 12 backspaces once and ends up fighting the
+   * field. The draft holds whatever they have typed; `visitors` — the value
+   * that is priced and submitted — only ever takes a valid number.
+   *
+   * Null means "not being edited", so the box shows the committed count and the
+   * +/− buttons stay in sync with it.
+   */
+  const [draftVisitors, setDraftVisitors] = useState<string | null>(null);
+
+  /** Clamp to the bookable range, ignoring anything that is not a whole number. */
+  function commitVisitors(raw: string) {
+    setDraftVisitors(null);
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed)) return; // leave the count untouched
+    setVisitors(Math.min(maxVisitors, Math.max(1, parsed)));
+  }
+
+  /*
+   * Steps from whatever is on screen, including a number still being typed.
+   *
+   * Tapping + does not blur the field first on every browser, so reading
+   * `visitors` here would step from the last committed count and discard what
+   * the guest had typed — type 40, tap +, get 3. Resolving the draft first
+   * makes the two controls edit one value rather than two.
+   */
+  function stepVisitors(delta: number) {
+    const current = draftVisitors === null ? visitors : Number.parseInt(draftVisitors, 10);
+    const base = Number.isFinite(current) ? current : visitors;
+    setDraftVisitors(null);
+    setVisitors(Math.min(maxVisitors, Math.max(1, base + delta)));
+  }
+
   // Mirrors the server's closed-day rule so the customer is told before paying
   // rather than after submitting. The server re-checks regardless.
   const closedDaySelected = isMonday(visitDate);
@@ -270,21 +308,48 @@ export function BookingForm({
           <div className="flex items-center justify-center gap-5">
             <button
               type="button"
-              onClick={() => setVisitors((v) => Math.max(1, v - 1))}
+              onClick={() => stepVisitors(-1)}
               className="touch-target w-16 rounded-xl border border-line text-2xl font-bold hover:bg-brand/5 disabled:opacity-30"
-              disabled={visitors <= 1}
+              disabled={draftVisitors === null && visitors <= 1}
               aria-label="One fewer visitor"
             >
               −
             </button>
-            <output aria-live="polite" aria-label="Visitor count" className="min-w-20 text-center text-4xl font-bold tabular-nums">
-              {visitors}
-            </output>
+            {/*
+              Typed as well as tapped. Stepping from 2 to 40 for a school group
+              is 38 taps, which is the point at which a counter of any kind
+              stops being the quick option.
+
+              `inputMode="numeric"` rather than `type="number"`: it raises the
+              digit keypad on a phone all the same, without the scroll-wheel
+              and spinner behaviour that silently changes a count when a guest
+              scrolls the page with the cursor over the field.
+            */}
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              aria-label="Visitor count"
+              value={draftVisitors ?? String(visitors)}
+              onChange={(e) => setDraftVisitors(e.target.value.replace(/[^0-9]/g, ""))}
+              // Committed on blur rather than on every keystroke, so typing
+              // "12" is not read as 1 and then clamped on the way past.
+              onBlur={(e) => commitVisitors(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  // Commit without submitting the form — this field sits three
+                  // steps above Pay, and Enter here means "that is my number".
+                  e.preventDefault();
+                  e.currentTarget.blur();
+                }
+              }}
+              className="touch-target w-24 rounded-xl border border-line bg-background px-1 text-center text-4xl font-bold tabular-nums outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/20"
+            />
             <button
               type="button"
-              onClick={() => setVisitors((v) => Math.min(maxVisitors, v + 1))}
+              onClick={() => stepVisitors(1)}
               className="touch-target w-16 rounded-xl border border-line text-2xl font-bold hover:bg-brand/5 disabled:opacity-30"
-              disabled={visitors >= maxVisitors}
+              disabled={draftVisitors === null && visitors >= maxVisitors}
               aria-label="One more visitor"
             >
               +
