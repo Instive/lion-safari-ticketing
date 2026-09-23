@@ -10,10 +10,10 @@
  * Usage: npm run verify:offline-counter   (dev server must be running)
  */
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { db, pool } from "@/db";
-import { bookings, devices, tickets } from "@/db/schema";
+import { boardingEvents, bookings, devices, tickets } from "@/db/schema";
 import { confirmBoarding } from "@/domain/boarding/confirm";
 import {
   activateReservedBooking,
@@ -281,6 +281,100 @@ async function main() {
     "a blank that WAS sold is not flagged",
     !discrepancies.some((d) => d.bookingId === sold.bookingId),
   );
+
+  // -----------------------------------------------------------------------
+  /*
+   * The dashboard compares "boarded" against "visitors expected". Those two
+   * figures have to count the same population or the ratio is meaningless: a
+   * blank boarded before it was sold has a scan but no confirmed booking, so
+   * counting it in one and not the other reported more visitors through the
+   * gate than the park sold tickets to (the "101% of expected" report).
+   *
+   * `orphan` above is exactly that case — boarded, never reconciled — so it is
+   * the right row to prove the admin queries now agree.
+   */
+  console.log("\n9b. Gate counts never exceed the visitors they are measured against");
+
+  const confirmedOnly = sql`${bookings.status} in ('PAID','CASH_CONFIRMED')`;
+
+  const [dash] = await db
+    .select({
+      expected: sql<number>`coalesce(sum(${bookings.visitorCount}) filter (where ${confirmedOnly}), 0)::int`,
+    })
+    .from(bookings)
+    .where(eq(bookings.visitDate, today));
+
+  const [gate] = await db
+    .select({
+      boarded: sql<number>`coalesce(sum(${boardingEvents.boardedCount}) filter (where ${confirmedOnly}), 0)::int`,
+      unreconciled: sql<number>`coalesce(sum(${boardingEvents.boardedCount}) filter (where ${bookings.status} = 'RESERVED'), 0)::int`,
+    })
+    .from(boardingEvents)
+    .innerJoin(tickets, eq(tickets.id, boardingEvents.ticketId))
+    .innerJoin(bookings, eq(bookings.id, tickets.bookingId))
+    .where(eq(tickets.visitDate, today));
+
+  check(
+    "an unsold blank that was boarded is NOT counted as an expected visitor",
+    (gate?.boarded ?? 0) <= (dash?.expected ?? 0),
+    `${gate?.boarded ?? 0} boarded of ${dash?.expected ?? 0} expected`,
+  );
+  check(
+    "it is reported separately instead, so it is not simply lost",
+    (gate?.unreconciled ?? 0) >= 2,
+    `${gate?.unreconciled ?? 0} visitor(s) on unsold blanks`,
+  );
+
+  // -----------------------------------------------------------------------
+  /*
+   * A blank is stock, not a sale. It has a real ACTIVE ticket worth zero, so
+   * any screen that lists or renders tickets by booking code must refuse it —
+   * otherwise the counter's lost-ticket search fills with ₹0 "Valid" tickets
+   * nobody bought, and the public ticket URL hands out working entry passes to
+   * anyone guessing codes.
+   */
+  console.log("\n9c. Unsold blanks are never shown or served as tickets");
+
+  const [blankForLookup] = await db
+    .select({ code: bookings.bookingCode })
+    .from(bookings)
+    .where(and(eq(bookings.reservedDeviceId, device!.id), eq(bookings.status, "RESERVED")))
+    .limit(1);
+
+  check("a blank is available to probe with", Boolean(blankForLookup));
+
+  if (blankForLookup) {
+    /*
+     * Probed on the customer surface, not the staff one: `/api/ticket/*` is a
+     * public path and src/proxy.ts 404s it on the staff hostname by design, so
+     * probing the staff host would "pass" the blank check for entirely the
+     * wrong reason and fail the sold-ticket control beside it.
+     *
+     * Built from the staff origin's host and port rather than APP_BASE_URL
+     * because that value is frequently a tunnel URL that is not resolvable from
+     * this machine, and a check that cannot run is worse than no check. With
+     * STAFF_BASE_URL unset the two are the same origin anyway.
+     */
+    const customerOrigin = `http://localhost:${new URL(staffBaseUrl()).port || "3000"}`;
+
+    const qr = await fetch(`${customerOrigin}/api/ticket/${blankForLookup.code}/qr`);
+    check(
+      "the public QR endpoint refuses to render a blank's token",
+      qr.status === 404,
+      `got ${qr.status}`,
+    );
+
+    // The control: the same endpoint must still serve a ticket somebody bought,
+    // so the check above is proving a status filter and not a broken route.
+    const sameQrForSoldTicket = await fetch(
+      `${customerOrigin}/api/ticket/${sold.bookingCode}/qr`,
+    );
+    check(
+      "while a real sale's QR still renders",
+      sameQrForSoldTicket.status === 200,
+      `got ${sameQrForSoldTicket.status}`,
+    );
+  }
 
   // -----------------------------------------------------------------------
   console.log("\n10. Special prices stay bounded (counter concessions)");

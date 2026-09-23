@@ -12,6 +12,7 @@ import { env } from "@/lib/env";
 import { formatPaise } from "@/lib/money";
 import { businessDate, formatLocalTime, formatVisitDate } from "@/lib/time";
 import { CounterForm } from "./counter-form";
+import { ShiftTotals } from "./shift-totals";
 
 export const metadata = { title: "Counter — Lion Safari" };
 export const dynamic = "force-dynamic";
@@ -68,22 +69,20 @@ export default async function CounterPage() {
           </Link>
         </div>
 
-        {/* Shift running total, so cash in the drawer can be checked against
-            the system at any point without leaving this screen. */}
-        <dl className="mt-4 grid grid-cols-3 divide-x divide-line overflow-hidden rounded-xl border border-line bg-surface">
-          <ShiftStat label="Sales" value={String(summary.total.sales)} />
-          <ShiftStat label="Visitors" value={String(summary.total.visitors)} />
-          <ShiftStat label="Taken" value={formatPaise(summary.total.amount)} />
-        </dl>
-
-        {/* This is money, and it was the smallest text on the screen. The two
-            figures are what the drawer and the statement get checked against,
-            so they carry the weight and the labels stay quiet. */}
-        <p className="text-muted mt-2 text-sm tabular-nums">
-          Cash <span className="text-foreground font-semibold">{formatPaise(summary.cash.amount)}</span>
-          {" · "}
-          UPI <span className="text-foreground font-semibold">{formatPaise(summary.upi.amount)}</span>
-        </p>
+        {/* The shift running total, one tap away rather than across the top of
+            the screen. Still reachable without leaving the counter — cash in
+            the drawer can be checked against the system at any point — but the
+            takings are no longer on display to whoever is at the window, and
+            the sale form gets the space instead. */}
+        <div className="mt-4">
+          <ShiftTotals
+            sales={summary.total.sales}
+            visitors={summary.total.visitors}
+            amount={formatPaise(summary.total.amount)}
+            cash={formatPaise(summary.cash.amount)}
+            upi={formatPaise(summary.upi.amount)}
+          />
+        </div>
       </header>
 
       <CounterForm
@@ -152,14 +151,5 @@ export default async function CounterPage() {
         </section>
       ) : null}
     </main>
-  );
-}
-
-function ShiftStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="px-3 py-2.5 text-center">
-      <dt className="text-muted text-[11px] uppercase tracking-wide">{label}</dt>
-      <dd className="mt-0.5 text-lg font-bold tabular-nums">{value}</dd>
-    </div>
   );
 }

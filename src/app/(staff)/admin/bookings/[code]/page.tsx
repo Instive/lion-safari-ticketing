@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { auditLog, boardingEvents, bookings, payments, tickets } from "@/db/schema";
 import { requirePageStaff } from "@/lib/auth/guards";
+import { env } from "@/lib/env";
 import { formatPaise } from "@/lib/money";
 import { businessDate, formatLocalTime, formatVisitDate } from "@/lib/time";
 import { StatusPill } from "../../status-pill";
@@ -62,6 +63,39 @@ export default async function BookingDetailPage({
         <h1 className="font-mono text-2xl font-bold tracking-wider">{booking.bookingCode}</h1>
         <StatusPill status={booking.status} ticketStatus={ticket?.status} />
       </div>
+
+      {/*
+        Straight to the ticket the guest is holding.
+
+        Admin answers "is this person's ticket real, and what does it look like
+        on their phone?" often enough that retyping a code into Find My Ticket
+        is the wrong amount of work — and that form deliberately demands the
+        booking code AND the phone number, which is exactly what an operator
+        helping a guest over the counter may not have to hand.
+
+        Only when there is a ticket to show: a PENDING or FAILED booking has no
+        QR behind it, and a blank from a till's ticket book is not a sale (both
+        now 404 on that page), so linking regardless would offer staff a dead
+        end dressed up as an action.
+      */}
+      {ticket && booking.status !== "RESERVED" ? (
+        <div className="mb-6 flex flex-wrap gap-2">
+          <a
+            href={customerTicketUrl(booking.bookingCode)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="touch-target grid place-items-center rounded-xl border border-line bg-surface px-4 text-sm font-semibold hover:border-brand hover:text-brand"
+          >
+            Open guest ticket ↗
+          </a>
+          <Link
+            href={`/counter/ticket/${booking.bookingCode}`}
+            className="touch-target grid place-items-center rounded-xl border border-line bg-surface px-4 text-sm font-semibold hover:border-brand hover:text-brand"
+          >
+            Reprint at counter
+          </Link>
+        </div>
+      ) : null}
 
       <section className="rounded-xl border border-line bg-surface p-5">
         <dl className="grid gap-3 sm:grid-cols-2">
@@ -146,6 +180,22 @@ export default async function BookingDetailPage({
       </section>
     </main>
   );
+}
+
+/**
+ * The guest-facing ticket page, as an absolute URL on the PUBLIC host.
+ *
+ * `/ticket/[code]` is a customer path, so `src/proxy.ts` 404s it on the staff
+ * hostname by design — a relative <Link> from an admin page would land on the
+ * wrong-host page whenever the two-domain split is deployed. Absolute, and a
+ * plain <a> rather than next/link, because this deliberately leaves the staff
+ * origin rather than client-navigating within it.
+ *
+ * With STAFF_BASE_URL unset (single-host local dev) both hosts are the same
+ * origin and this is simply the same page.
+ */
+function customerTicketUrl(bookingCode: string): string {
+  return new URL(`/ticket/${bookingCode}`, env.APP_BASE_URL).toString();
 }
 
 function Field({ label, value }: { label: string; value: string }) {

@@ -282,6 +282,10 @@ body {
   .booking-checkout dl > div:last-child { color: var(--brand); font-size: 1.5rem; }
   .gallery-dialog { margin: auto; width: min(64rem, calc(100% - 2rem)); max-height: calc(100dvh - 2rem); border-radius: 1.25rem; padding: 1rem; background: var(--zoo-forest-deep); color: white; }
   .gallery-dialog::backdrop { background: #08130dea; backdrop-filter: blur(6px); }
+  /* The counter's shift totals. Sized for a till screen held in one hand, so
+     it sits at the width of the counter column rather than filling a desktop. */
+  .shift-dialog { margin: auto; width: min(26rem, calc(100% - 2rem)); max-height: calc(100dvh - 2rem); border-radius: 1.25rem; padding: 1.25rem; border: 1px solid var(--border); background: var(--surface); color: var(--foreground); }
+  .shift-dialog::backdrop { background: #08130d99; }
   @media (min-width: 768px) {
     .booking-layout { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 2rem; }
     .booking-checkout { position: sticky; top: 6rem; }

@@ -60,13 +60,29 @@ export default async function AdminDashboard() {
   // `tickets.visitDate` is denormalized from the booking (see schema), so one
   // join is enough, and a guest booked for today still counts as today however
   // late in the evening they actually scanned.
+  //
+  // Joined through to the BOOKING and split by its status, because the two
+  // figures compared on screen have to count the same population. `expected`
+  // counts confirmed bookings only; a blank from a till's ticket book is
+  // admissible at the gate before anyone pays for it (domain/booking/reserve.ts),
+  // so its scan used to land in `boarded` while its visitors were never in
+  // `expected` — which is what produced "398 of 394", a ratio above 100% that
+  // read as a scanning fault when it is really an unreconciled sale.
+  //
+  // So: `boarded` counts scans whose booking is confirmed, and scans still
+  // sitting against a RESERVED blank are reported separately as what they are —
+  // a till whose queue has not synced. `bookDiscrepancies` in
+  // domain/reports/ticket-books.ts is the detailed version of that same number.
   const [boardingStats] = await db
     .select({
-      events: sql<number>`count(*)::int`,
-      boarded: sql<number>`coalesce(sum(${boardingEvents.boardedCount}), 0)::int`,
+      events: sql<number>`count(*) filter (where ${bookings.status} in ('PAID','CASH_CONFIRMED'))::int`,
+      boarded: sql<number>`coalesce(sum(${boardingEvents.boardedCount}) filter (where ${bookings.status} in ('PAID','CASH_CONFIRMED')), 0)::int`,
+      unreconciled: sql<number>`coalesce(sum(${boardingEvents.boardedCount}) filter (where ${bookings.status} = 'RESERVED'), 0)::int`,
+      unreconciledSales: sql<number>`count(*) filter (where ${bookings.status} = 'RESERVED')::int`,
     })
     .from(boardingEvents)
     .innerJoin(tickets, eq(tickets.id, boardingEvents.ticketId))
+    .innerJoin(bookings, eq(bookings.id, tickets.bookingId))
     .where(eq(tickets.visitDate, today));
 
   const [pendingStats] = await db
@@ -88,6 +104,7 @@ export default async function AdminDashboard() {
 
   const expected = todayStats?.visitors ?? 0;
   const boarded = boardingStats?.boarded ?? 0;
+  const unreconciled = boardingStats?.unreconciled ?? 0;
   const online = todayStats?.online ?? 0;
   const counter = todayStats?.counter ?? 0;
   const cashTaken = todayStats?.cashTaken ?? 0;
@@ -181,6 +198,27 @@ export default async function AdminDashboard() {
           ) : (
             <p className="text-muted mt-2 text-xs">No confirmed bookings for today yet.</p>
           )}
+          {/*
+            Blanks that were used at the gate but never became a sale. Almost
+            always a counter device whose queue has not synced — worth chasing
+            before the cash is banked, which is why it links straight to the
+            ticket-books page rather than just stating a number.
+          */}
+          {unreconciled > 0 ? (
+            <p className="mt-3 rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-xs">
+              <span className="font-semibold">
+                {unreconciled} more visitor{unreconciled === 1 ? "" : "s"} boarded on unsold blanks
+              </span>
+              <span className="text-muted block">
+                {boardingStats?.unreconciledSales ?? 0} counter ticket
+                {(boardingStats?.unreconciledSales ?? 0) === 1 ? "" : "s"} used at the gate with no
+                sale recorded yet — usually a till that has not synced.{" "}
+                <Link href="/admin/books" className="text-brand underline">
+                  Ticket books
+                </Link>
+              </span>
+            </p>
+          ) : null}
         </section>
 
         <section className="rounded-xl border border-line bg-surface p-4">
