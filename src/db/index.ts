@@ -20,7 +20,7 @@ let dbInstance: ReturnType<typeof createDb> | null = null;
 function createPool(): Pool {
   return new Pool({
     connectionString: env.DATABASE_URL,
-    max: 10,
+    max: 5,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
   });
