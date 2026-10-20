@@ -32,7 +32,7 @@ export async function getBoss(): Promise<PgBoss> {
       // Delivery keeps retrying with backoff for roughly a day: a customer's
       // ticket email should survive a long outage at the mail provider.
       boss.createQueue(QUEUES.deliverTicket, {
-        retryLimit: 8,
+        retryLimit: 4,
         retryDelay: 30,
         retryBackoff: true,
         retryDelayMax: 3600,

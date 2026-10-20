@@ -4,7 +4,9 @@ import { deliverTicket } from "@/jobs/handlers/deliver-ticket";
 import { reconcilePayments } from "@/jobs/handlers/reconcile-payments";
 import { getBoss, QUEUES, type DeliverTicketJob } from "@/jobs/queue";
 import { purgeExpiredSessions } from "@/lib/auth/session";
-import { env } from "@/lib/env";
+// NOTE: `env` is imported again when the daily-report schedule below is
+// re-enabled — it supplies the APP_TIMEZONE that keeps the 8pm cron in the
+// park's timezone rather than UTC.
 import { log } from "@/lib/log";
 
 /**
@@ -85,10 +87,28 @@ export async function startWorkers(): Promise<void> {
   // not until someone notices.
   await boss.schedule(QUEUES.reconcilePayments, "*/2 * * * *");
 
+  // The nightly bookings report is DISABLED (2026-10-20), while the web service
+  // and the jobs share one 512MB instance and that instance is being OOM-killed.
+  //
+  // The handler is the heaviest thing the queue runs: it accumulates the whole
+  // day's CSV into one string and then base64-encodes it, so three copies of it
+  // are live at once (jobs/handlers/daily-report.ts) — and that grows with the
+  // booking count. Re-enabling this without fixing that buffering puts the
+  // largest allocation in the process back on a nightly timer.
+  //
+  // What is given up meanwhile: the report is an OFF-SITE copy of the booking
+  // record, deliberately living somewhere the app cannot reach. Until this is
+  // back on, Render's managed Postgres backups are the ONLY copy. The handler,
+  // the queue and the admin "email it again" button
+  // (admin/bookings/report-actions.ts) all still work, so a specific day can be
+  // sent by hand.
+  //
+  // To re-enable: fix the buffering first, then uncomment.
+  //
   // 8pm in the park's timezone — after the 5pm close, so the day is complete,
   // and while someone is still around to notice if it doesn't arrive. pg-boss
   // schedules in UTC unless told otherwise, which would land this mid-afternoon.
-  await boss.schedule(QUEUES.dailyReport, "0 20 * * *", {}, { tz: env.APP_TIMEZONE });
+  // await boss.schedule(QUEUES.dailyReport, "0 20 * * *", {}, { tz: env.APP_TIMEZONE });
 
   log.info("worker", "listening", { queues: Object.values(QUEUES).join(", ") });
 }
