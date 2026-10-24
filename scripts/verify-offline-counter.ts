@@ -91,6 +91,12 @@ async function main() {
   // -----------------------------------------------------------------------
   console.log("\n2. A blank is in the gate manifest, so it scans offline");
   const manifest = await buildSync(0, env.SYNC_STALE_THRESHOLD_SECONDS);
+  let cursor = manifest.nextCursor;
+  while (cursor) {
+    const page = await buildSync(0, env.SYNC_STALE_THRESHOLD_SECONDS, { cursor });
+    manifest.tickets.push(...page.tickets);
+    cursor = page.nextCursor;
+  }
   const sample = book[0]!;
   const [sampleTicket] = await db
     .select()

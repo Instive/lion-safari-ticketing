@@ -1,7 +1,9 @@
-import { and, eq, gt, inArray, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { bookings, changeLog, tickets } from "@/db/schema";
+import { env } from "@/lib/env";
+import { decodeSyncCursor, encodeSyncCursor } from "./cursor";
 import { businessDate, serverNow } from "@/lib/time";
 
 /**
@@ -29,6 +31,7 @@ export type SyncResponse = {
   visitDate: string;
   tickets: SyncTicket[];
   staleThresholdSeconds: number;
+  nextCursor: string | null;
 };
 
 /**
@@ -42,68 +45,64 @@ export type SyncResponse = {
  */
 const OVERLAP_SECONDS = 30;
 
+export const SYNC_PAGE_SIZE = 500;
+
+export type SyncOptions = { cursor?: string; visitDate?: string; syncedAt?: string };
+
 export async function buildSync(
   since: number,
   staleThresholdSeconds: number,
+  options: SyncOptions = {},
 ): Promise<SyncResponse> {
   const today = businessDate();
   const now = serverNow();
+  const cursor = options.cursor
+    ? decodeSyncCursor(options.cursor, env.SESSION_SECRET, today, now)
+    : undefined;
+  // Capture the watermark BEFORE reading pages. Changes made during pagination
+  // remain eligible for the following sync, including inserts behind the cursor.
+  const version = cursor?.version ?? (await db
+    .select({ version: sql<number>`coalesce(max(${changeLog.id}), 0)::float8` })
+    .from(changeLog))[0]!.version;
+  const fullSync = cursor?.fullSync ?? (since <= 0 || (options.visitDate !== undefined && options.visitDate !== today));
+  const startedAt = cursor?.startedAt ?? now.toISOString();
+  const previousTime = options.syncedAt ? Date.parse(options.syncedAt) : now.getTime();
+  // Anchor the overlap to the LAST completed sync, not the last page's time.
+  const overlapFrom = cursor?.overlapFrom ?? new Date(
+    Math.min(Number.isFinite(previousTime) ? previousTime : now.getTime(), now.getTime()) - OVERLAP_SECONDS * 1000,
+  ).toISOString();
+  const fromVersion = cursor?.since ?? since;
 
-  const [{ version }] = await db
-    .select({ version: sql<number>`coalesce(max(${changeLog.id}), 0)::int` })
-    .from(changeLog);
-
-  const fullSync = since <= 0;
-
-  const rows = fullSync
-    ? // First sync of the shift: the whole manifest for today.
-      await db
-        .select(ticketColumns())
-        .from(tickets)
-        .innerJoin(bookings, eq(bookings.id, tickets.bookingId))
-        .where(eq(tickets.visitDate, today))
-    : await (async () => {
-        const changed = await db
-          .selectDistinct({ entityId: changeLog.entityId })
-          .from(changeLog)
-          .where(
-            and(
-              eq(changeLog.entity, "ticket"),
-              or(
-                gt(changeLog.id, since),
-                gt(changeLog.createdAt, new Date(now.getTime() - OVERLAP_SECONDS * 1000)),
-              ),
-            ),
-          )
-          .limit(5000);
-
-        if (changed.length === 0) return [];
-
-        return db
-          .select(ticketColumns())
-          .from(tickets)
-          .innerJoin(bookings, eq(bookings.id, tickets.bookingId))
-          .where(
-            and(
-              eq(tickets.visitDate, today),
-              inArray(
-                tickets.id,
-                changed.map((c) => c.entityId),
-              ),
-            ),
-          );
-      })();
+  const changedIds = db.select({ entityId: changeLog.entityId }).from(changeLog).where(and(
+    eq(changeLog.entity, "ticket"),
+    or(gt(changeLog.id, fromVersion), gt(changeLog.createdAt, new Date(overlapFrom))),
+  ));
+  // Keep the change-set in Postgres; no unbounded JS array or 5,000-row truncation.
+  const rows = await db.select(ticketColumns()).from(tickets)
+    .innerJoin(bookings, eq(bookings.id, tickets.bookingId))
+    .where(and(
+      eq(tickets.visitDate, today),
+      cursor ? gt(tickets.id, cursor.after) : undefined,
+      fullSync ? undefined : inArray(tickets.id, changedIds),
+    ))
+    .orderBy(asc(tickets.id))
+    .limit(SYNC_PAGE_SIZE + 1);
+  const hasMore = rows.length > SYNC_PAGE_SIZE;
+  if (hasMore) rows.pop();
+  const nextCursor = hasMore ? encodeSyncCursor({
+    since: fromVersion, version, visitDate: today, startedAt, overlapFrom,
+    after: rows[rows.length - 1]!.ticketId, fullSync,
+  }, env.SESSION_SECRET) : null;
 
   return {
-    serverTime: now.toISOString(),
+    serverTime: startedAt,
     version,
     fullSync,
     visitDate: today,
     staleThresholdSeconds,
+    nextCursor,
     tickets: rows.map((r) => ({
       ticketId: r.ticketId,
-      // Hashing happens server-side so the raw token never leaves the database
-      // for the gate device.
       tokenHash: r.tokenHash,
       bookingCode: r.bookingCode,
       status: r.status,

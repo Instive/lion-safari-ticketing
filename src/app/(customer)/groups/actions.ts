@@ -105,7 +105,7 @@ export async function submitGroupEnquiryAction(
   }
 }
 
-/** Same list the nightly report uses; empty simply means nobody is notified. */
+/** Staff notification recipients; empty means nobody is notified. */
 function notifyAddresses(): string[] {
   return env.REPORT_EMAIL_TO.split(",")
     .map((address) => address.trim())

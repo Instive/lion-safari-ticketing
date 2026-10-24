@@ -13,7 +13,6 @@ import {
   parseFilters,
 } from "@/domain/reports/bookings";
 import { StatusPill } from "../status-pill";
-import { EmailReportButton } from "./email-report-button";
 import { FilterBar } from "./filter-bar";
 
 export const metadata = { title: "Bookings — Lion Safari" };
@@ -63,7 +62,6 @@ export default async function AdminBookingsPage({ searchParams }: PageProps<"/ad
           >
             Download CSV
           </a>
-          {singleDay ? <EmailReportButton businessDate={filters.from} /> : null}
         </div>
       </div>
 

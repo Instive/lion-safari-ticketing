@@ -30,8 +30,7 @@ import {
 export * from "./filter-options";
 
 /**
- * The queries behind the admin bookings view, the CSV download and the nightly
- * report — one definition of "which bookings are we talking about". If the
+ * The queries behind the admin bookings view and CSV download — one definition of "which bookings are we talking about". If the
  * export could build its own filter, a number on screen and a number in a
  * spreadsheet would eventually disagree, and the spreadsheet is what gets
  * forwarded.

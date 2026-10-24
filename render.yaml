@@ -43,7 +43,7 @@ services:
     # morning and no 15-minute idle sleep.
     plan: starter
     region: singapore
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     # The migration runs as a PRE-DEPLOY step, which the paid plan makes
     # available and which is strictly better than putting it in startCommand:
     #
@@ -116,8 +116,7 @@ services:
         sync: false
       - key: SUPPORT_PHONE
         sync: false
-      # Recipients of the nightly bookings CSV (comma-separated). The worker
-      # sends it; the web service reads it only to show who it goes to.
+      # Staff recipients for group-enquiry notifications (legacy variable name).
       - key: REPORT_EMAIL_TO
         sync: false
 
@@ -134,7 +133,6 @@ services:
     #     stayed PENDING — paid, with no ticket and no path to one;
     #   - unsold counter blanks never expired, which is the ONLY thing bounding
     #     a ticket book's exposure to a single day (src/domain/booking/reserve.ts);
-    #   - the nightly reconciliation CSV was never sent.
     #
     # If this service is missing from the Render dashboard, that is what is
     # happening right now.
@@ -192,8 +190,7 @@ services:
         sync: false
       - key: SUPPORT_PHONE
         sync: false
-      # Recipients of the nightly bookings CSV (comma-separated). The worker
-      # sends it; the web service reads it only to show who it goes to.
+      # Staff recipients for group-enquiry notifications (legacy variable name).
       - key: REPORT_EMAIL_TO
         sync: false
 
@@ -224,7 +221,7 @@ services:
     plan: free
     region: singapore
     branch: dev
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm run db:migrate:prod && npm start
     healthCheckPath: /api/health
     envVars:
@@ -271,11 +268,7 @@ services:
         sync: false
       - key: MAIL_FROM
         sync: false
-      # REPORT_EMAIL_TO is deliberately absent. The nightly report already
-      # no-ops without a recipient, which is exactly what a test environment
-      # wants: no email to a real address from a rehearsal. Ticket delivery is
-      # different — MAIL_FROM and BREVO_API_KEY above are intentionally set so
-      # the online payment flow can be tested end to end, including delivery.
+      # REPORT_EMAIL_TO is absent so dev group enquiries do not notify real staff.
 
   - type: worker
     name: lion-safari-worker-dev

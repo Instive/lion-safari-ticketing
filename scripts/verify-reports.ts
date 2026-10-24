@@ -1,8 +1,7 @@
 /**
  * Verifies the admin bookings view and its exports against a running dev
  * server: filters mean the same thing on screen and in the CSV, the export is
- * ADMIN-only, spreadsheet formula injection is neutralised, and the nightly
- * report collapses duplicate sends for the same date.
+ * ADMIN-only and spreadsheet formula injection is neutralised.
  *
  * Usage: npm run verify:reports   (dev server must be running)
  */

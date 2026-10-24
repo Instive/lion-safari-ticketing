@@ -28,7 +28,11 @@
     "verify:guards": "tsx --env-file=.env.local scripts/verify-guards.ts",
     "db:seed:demo": "tsx --env-file=.env.local scripts/seed-demo.ts",
     "db:reset": "npm run db:migrate && npm run db:seed && npm run db:seed:demo",
-    "verify:offline-switch": "tsx --env-file=.env.local scripts/verify-offline-switch.ts"
+    "verify:offline-switch": "tsx --env-file=.env.local scripts/verify-offline-switch.ts",
+    "images:generate": "node scripts/generate-images.mjs",
+    "predev": "npm run images:generate",
+    "prebuild": "npm run images:generate",
+    "test:memory": "node --import tsx --test scripts/memory-regressions.test.ts"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",
@@ -60,5 +64,9 @@
     "tsx": "^4.23.12",
     "typescript": "^5",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "6.2.4",
+    "sharp": "0.35.3"
   }
 }

@@ -2,7 +2,7 @@
  * Background worker, as its own process:
  *   npm run worker
  *
- * Handles ticket delivery, payment reconciliation and the nightly report.
+ * Handles ticket delivery, payment reconciliation and cleanup.
  * Keeping it separate means a slow email or an unresponsive payment API can
  * never delay a web request.
  *

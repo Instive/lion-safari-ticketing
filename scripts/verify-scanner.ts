@@ -31,6 +31,7 @@ type SyncPayload = {
   fullSync: boolean;
   visitDate: string;
   staleThresholdSeconds: number;
+  nextCursor: string | null;
   tickets: {
     ticketId: string;
     tokenHash: string;
@@ -43,10 +44,19 @@ type SyncPayload = {
 };
 
 async function sync(key: string, since: number): Promise<{ status: number; body: SyncPayload }> {
-  const res = await fetch(`${BASE}/api/scanner/sync?since=${since}`, {
-    headers: { "x-device-key": key },
-  });
-  return { status: res.status, body: res.status === 200 ? await res.json() : ({} as SyncPayload) };
+  const query = new URLSearchParams({ protocol: "2", since: String(since) });
+  let combined: SyncPayload | undefined;
+  do {
+    const res = await fetch(`${BASE}/api/scanner/sync?${query}`, { headers: { "x-device-key": key } });
+    if (!res.ok) return { status: res.status, body: {} as SyncPayload };
+    const body = await res.json() as SyncPayload;
+    check("sync page is bounded", body.tickets.length <= 500);
+    if (combined) combined.tickets.push(...body.tickets);
+    else combined = body;
+    if (!body.nextCursor) break;
+    query.set("cursor", body.nextCursor);
+  } while (true);
+  return { status: 200, body: combined! };
 }
 
 async function pushEvents(
