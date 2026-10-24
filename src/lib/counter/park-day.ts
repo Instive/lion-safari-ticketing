@@ -93,6 +93,6 @@ export function blockMessage(reason: SellBlockReason): string {
     case "STALE_BOOK":
       return "This till's ticket book is out of date. Reconnect to the internet before selling — a ticket printed now would be refused at the gate.";
     case "OFFLINE_DISABLED":
-      return "The office has turned offline selling off. Online sales work as normal; if the internet drops, this till cannot issue tickets.";
+      return "Offline selling off";
   }
 }
