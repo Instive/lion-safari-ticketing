@@ -8,6 +8,7 @@ import { isTestEnvironment } from "@/components/staff/env-banner";
 import { requirePageStaff } from "@/lib/auth/guards";
 import { MAX_VISITORS_PER_BOOKING } from "@/domain/booking/pricing";
 import { dayEndSummary, recentCounterSales } from "@/domain/reports/counter";
+import { getParkSettings } from "@/domain/settings";
 import { env } from "@/lib/env";
 import { formatPaise } from "@/lib/money";
 import { businessDate, formatLocalTime, formatVisitDate } from "@/lib/time";
@@ -21,7 +22,7 @@ export default async function CounterPage() {
   const staff = await requirePageStaff(["COUNTER"]);
   const today = businessDate();
 
-  const [summary, recentSales, rates] = await Promise.all([
+  const [summary, recentSales, rates, settings] = await Promise.all([
     // What this staff member should be able to hand over at the end of the
     // shift, split the way it will be checked: cash against the drawer, UPI
     // against the account. Cancelled sales are excluded — that money went back
@@ -47,6 +48,11 @@ export default async function CounterPage() {
       .from(rateCategories)
       .where(eq(rateCategories.active, true))
       .orderBy(asc(rateCategories.perVisitorPaise)),
+
+    // The park-wide offline switch. Read here so a till that has never
+    // enrolled — and therefore cannot call the counter device API — still
+    // knows not to offer offline setup.
+    getParkSettings(),
   ]);
 
   return (
@@ -92,6 +98,7 @@ export default async function CounterPage() {
         staffId={staff.id}
         isTest={isTestEnvironment()}
         idempotencyKey={randomUUID()}
+        offlineSellingEnabled={settings.offlineSellingEnabled}
       />
 
       {recentSales.length > 0 ? (

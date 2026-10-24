@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { devices } from "@/db/schema";
 import { writeAudit } from "@/domain/audit";
+import { setOfflineSellingEnabled } from "@/domain/settings";
 import { generateApiKey, sha256 } from "@/lib/codes";
 import { requireStaff } from "@/lib/auth/guards";
 
@@ -123,5 +124,34 @@ export async function rotateDeviceKeyAction(
   return {
     apiKey,
     success: `New key issued for ${updated.name}. The previous key no longer works.`,
+  };
+}
+
+/**
+ * Turns offline counter selling on or off for the whole park.
+ *
+ * Lives with the device actions because that is where an admin already goes to
+ * decide what a terminal may do — but it is NOT a device flag. Deactivating a
+ * device revokes its key and locks it out of everything, including pushing
+ * sales it has already made; this leaves every till working normally online and
+ * only stops the ticket books.
+ */
+export async function setOfflineSellingAction(
+  _prev: DeviceState,
+  formData: FormData,
+): Promise<DeviceState> {
+  const staff = await requireStaff(["ADMIN"]);
+  const enabled = formData.get("enabled") === "true";
+
+  const stored = await setOfflineSellingEnabled({
+    enabled,
+    actor: { type: "STAFF", id: staff.id, name: staff.name },
+  });
+
+  revalidatePath("/admin/devices");
+  return {
+    success: stored
+      ? "Offline selling is on. Tills top their ticket books up on their next sync."
+      : "Offline selling is off. Tills stop selling offline on their next sync; online sales are unaffected.",
   };
 }

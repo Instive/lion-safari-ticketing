@@ -48,6 +48,16 @@ export type CounterMeta = {
   lastSyncAt: string | null;
   /** The park day the server last reported, so the UI never guesses it. */
   visitDate: string | null;
+  /**
+   * The park-wide offline switch, as of the last sync.
+   *
+   * Remembered rather than re-derived from "the book is empty", because those
+   * two states need different words at the counter: an empty book is a stock
+   * problem the office can fix by topping up, while this is a deliberate
+   * decision staff should not wait around for. Null means no sync has reported
+   * it yet.
+   */
+  offlineSelling?: boolean | null;
 };
 
 const db = new Dexie("lion-safari-counter") as Dexie & {
@@ -68,7 +78,7 @@ const META_KEY = "counter";
 
 export async function getCounterMeta(): Promise<CounterMeta> {
   const row = await db.meta.get(META_KEY);
-  return row ?? { key: META_KEY, lastSyncAt: null, visitDate: null };
+  return row ?? { key: META_KEY, lastSyncAt: null, visitDate: null, offlineSelling: null };
 }
 
 export async function setCounterMeta(update: Partial<Omit<CounterMeta, "key">>): Promise<void> {

@@ -485,6 +485,47 @@ export const rateLimits = pgTable("rate_limits", {
 });
 
 // ---------------------------------------------------------------------------
+// Park settings
+// ---------------------------------------------------------------------------
+
+/**
+ * Single-row table of operational switches an admin may flip at runtime.
+ *
+ * Deliberately NOT environment variables: these are decisions the office makes
+ * during a day — "stop handing out ticket books" — and an env change means a
+ * redeploy, which is both slow and invisible in the audit trail. The `id` check
+ * constraint pins this to exactly one row, so "the settings" is never ambiguous
+ * and a reader never has to decide which row wins.
+ *
+ * Prices are NOT here. The standard fare stays in the environment and
+ * concessions stay in `rate_categories`, because money is re-derived
+ * server-side per sale (spec §4.3) and a mutable global price row would become
+ * a second, competing source for it.
+ */
+export const parkSettings = pgTable(
+  "park_settings",
+  {
+    id: integer("id").primaryKey().default(1),
+    /**
+     * Whether counter tills may hold ticket books at all.
+     *
+     * Off means `/api/counter/book` stops allocating AND stops returning
+     * blanks, so no till can sell offline. Online counter selling is
+     * unaffected — it authenticates with the staff session, not the device key.
+     *
+     * Blanks already on a till are left to expire at rollover
+     * (`expireStaleBlanks`) rather than being voided here; turning the switch
+     * off is a stock decision, and a till that is mid-outage keeps whatever the
+     * server already committed to.
+     */
+    offlineSellingEnabled: boolean("offline_selling_enabled").notNull().default(true),
+    updatedByStaffId: uuid("updated_by_staff_id").references(() => staffUsers.id),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check("park_settings_single_row", sql`${t.id} = 1`)],
+);
+
+// ---------------------------------------------------------------------------
 // Inferred types
 // ---------------------------------------------------------------------------
 
@@ -496,6 +537,7 @@ export type Payment = typeof payments.$inferSelect;
 export type Ticket = typeof tickets.$inferSelect;
 export type BoardingEvent = typeof boardingEvents.$inferSelect;
 export type GroupEnquiry = typeof groupEnquiries.$inferSelect;
+export type ParkSettings = typeof parkSettings.$inferSelect;
 
 export type BookingStatus = (typeof bookingStatus.enumValues)[number];
 export type CounterTender = (typeof counterTender.enumValues)[number];

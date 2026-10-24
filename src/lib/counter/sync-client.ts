@@ -82,6 +82,12 @@ type BookResponse = {
   visitDate: string;
   allocated: number;
   blanks: Blank[];
+  /**
+   * The park-wide offline switch. Absent on a server that predates it, which is
+   * read as `true` so a mid-deploy till does not lose its book to a field that
+   * has not shipped yet.
+   */
+  offlineSelling?: boolean;
 };
 
 type SaleResult = {
@@ -108,8 +114,25 @@ export async function runCounterSync(): Promise<CounterSyncState> {
   if (!res.ok) throw new Error(`book sync failed: ${res.status}`);
 
   const payload = (await res.json()) as BookResponse;
-  await applyBook(payload.blanks);
-  await setCounterMeta({ lastSyncAt: payload.serverTime, visitDate: payload.visitDate });
+
+  /*
+   * Offline selling switched off park-wide.
+   *
+   * The server already returned an empty book, and `applyBook` clears the local
+   * one while deliberately keeping the outbox — so queued sales made before the
+   * switch was flipped still reconcile on this same sync, which is why
+   * `pushSales()` above runs first. Recording the switch in meta means the till
+   * reports it as a BLOCKED state offline too, rather than looking like a till
+   * that has merely run out of stock.
+   */
+  const offlineSelling = payload.offlineSelling !== false;
+
+  await applyBook(offlineSelling ? payload.blanks : []);
+  await setCounterMeta({
+    lastSyncAt: payload.serverTime,
+    visitDate: payload.visitDate,
+    offlineSelling,
+  });
 
   return counterState(payload.visitDate, payload.serverTime);
 }
@@ -177,10 +200,22 @@ export async function counterState(
   const meta = await getCounterMeta();
   const resolved = resolveParkDay(syncedDay ?? meta.visitDate, await heldDates());
 
+  /*
+   * The park-wide switch outranks every other resolution.
+   *
+   * Checked here rather than only in `runCounterSync` so it survives going
+   * offline: this function is what the till uses with no network, and a till
+   * that was switched off while online must not come back as merely
+   * "out of stock" once it loses the link. `resolveParkDay` is left alone — it
+   * answers "which day may this till sell for", which is a different question
+   * from "may it sell at all".
+   */
+  const offlineDisabled = meta.offlineSelling === false;
+
   // Stock is counted for the day that would actually be SOLD, so a blocked or
   // rolled-over till never shows staff a count it cannot hand out.
   const stock = new Map<number, number>();
-  if (resolved.day) {
+  if (resolved.day && !offlineDisabled) {
     const rows = await counterDb.blanks.where("visitDate").equals(resolved.day).toArray();
     for (const row of rows) {
       stock.set(row.visitorCount, (stock.get(row.visitorCount) ?? 0) + 1);
@@ -189,9 +224,11 @@ export async function counterState(
 
   return {
     lastSyncAt: lastSyncAt ?? meta.lastSyncAt,
-    visitDate: resolved.day,
-    blocked: resolved.blocked,
+    visitDate: offlineDisabled ? null : resolved.day,
+    blocked: offlineDisabled ? "OFFLINE_DISABLED" : resolved.blocked,
     stock,
+    // Still reported when switched off: these are sales already made, and the
+    // till must keep showing them until they reconcile.
     queueDepth: await counterDb.queue.count(),
   };
 }
