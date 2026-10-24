@@ -1,5 +1,7 @@
 "use client";
 
+import { singleFlight } from "@/lib/single-flight";
+import { fetchJson } from "@/lib/fetch-json";
 import {
   applyBook,
   counterDb,
@@ -106,14 +108,20 @@ type SaleResult = {
  * of what is unsold is only correct once it knows what this device has already
  * sold. Pulling first would hand back blanks that are sitting in the outbox.
  */
-export async function runCounterSync(): Promise<CounterSyncState> {
+export const runCounterSync = singleFlight(async (): Promise<CounterSyncState> => {
+  if (typeof navigator !== "undefined" && navigator.locks) {
+    return navigator.locks.request("lion-safari-counter-sync", syncCounter);
+  }
+  return syncCounter();
+});
+
+async function syncCounter(): Promise<CounterSyncState> {
   await pushSales();
 
-  const res = await fetch("/api/counter/book", { headers: headers(), cache: "no-store" });
+  const { response: res, body: payload } = await fetchJson<BookResponse>("/api/counter/book", { headers: headers(), cache: "no-store" }, 30_000);
   if (res.status === 401) throw new CounterDeviceUnauthorizedError();
   if (!res.ok) throw new Error(`book sync failed: ${res.status}`);
 
-  const payload = (await res.json()) as BookResponse;
 
   /*
    * Offline selling switched off park-wide.
@@ -138,11 +146,11 @@ export async function runCounterSync(): Promise<CounterSyncState> {
 }
 
 /** Sends everything in the outbox. Safe to call repeatedly. */
-export async function pushSales(): Promise<void> {
+export const pushSales = singleFlight(async (): Promise<void> => {
   const queued = await counterDb.queue.limit(100).toArray();
   if (queued.length === 0) return;
 
-  const res = await fetch("/api/counter/sales", {
+  const { response: res, body } = await fetchJson<{ results: SaleResult[] }>("/api/counter/sales", {
     method: "POST",
     headers: headers(),
     body: JSON.stringify({
@@ -163,7 +171,6 @@ export async function pushSales(): Promise<void> {
   if (res.status === 401) throw new CounterDeviceUnauthorizedError();
   if (!res.ok) throw new Error(`sale push failed: ${res.status}`);
 
-  const body = (await res.json()) as { results: SaleResult[] };
 
   for (const result of body.results) {
     if (result.accepted) {
@@ -182,7 +189,7 @@ export async function pushSales(): Promise<void> {
       }
     }
   }
-}
+});
 
 /**
  * Current local state without touching the network — used offline.

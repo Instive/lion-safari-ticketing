@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
  *
  * Deliberately a summary and not a list of every ticket. A busy day is a few
  * hundred sales, and a metre of thermal paper nobody reads is not a record —
- * the per-ticket detail already lives in admin and in the nightly CSV, which is
+ * the per-ticket detail already lives in admin and in the downloadable CSV, which is
  * where anyone actually reconciling goes. What has to be on paper is the figure
  * the drawer gets checked against, and enough context to explain it if it is
  * short.

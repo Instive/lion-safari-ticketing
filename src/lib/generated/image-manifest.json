@@ -1,0 +1,748 @@
+{
+  "/app-icon-192.png": [
+    {
+      "width": 32,
+      "src": "/_images/30e1bb90c6f8b8d2-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/998a5b1e062160b0-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/ce1500f61e1fb609-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/0cf3352da1fa15c1-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/d37e743132d05912-128.webp"
+    },
+    {
+      "width": 192,
+      "src": "/_images/cc13e2471549b185-192.webp"
+    }
+  ],
+  "/app-icon-512.png": [
+    {
+      "width": 32,
+      "src": "/_images/8bbb27abe85e3dca-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/1f16fcda0dbf0a22-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/86e02d5256281078-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/8c66bd612cfd78c3-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/b895f0a2ae6f2edc-128.webp"
+    },
+    {
+      "width": 256,
+      "src": "/_images/64ee272798c41ff0-256.webp"
+    },
+    {
+      "width": 384,
+      "src": "/_images/cd8a56532c17dc39-384.webp"
+    },
+    {
+      "width": 512,
+      "src": "/_images/dc003d82b2d62f45-512.webp"
+    }
+  ],
+  "/deer-transparent-opt.png": [
+    {
+      "width": 32,
+      "src": "/_images/3c3f663ace5a2737-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/fcd0e25424ac1a31-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/3f320beb67bc5e12-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/eedf8dae6198a037-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/dac1672d07cb4d48-128.webp"
+    },
+    {
+      "width": 256,
+      "src": "/_images/bb5bd850f47ce4eb-256.webp"
+    },
+    {
+      "width": 384,
+      "src": "/_images/f3f354bd0917e505-384.webp"
+    },
+    {
+      "width": 578,
+      "src": "/_images/ecb0303c3577f055-578.webp"
+    }
+  ],
+  "/lion_and_deer_safari_zoo.jpeg": [
+    {
+      "width": 32,
+      "src": "/_images/9a29569a8b7c56ae-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/400bc7eee1ff2efb-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/64a4dd56862bbf46-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/e398081e722b1ea4-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/3b33caf1a8db320d-128.webp"
+    },
+    {
+      "width": 256,
+      "src": "/_images/5f70fc511e0c8595-256.webp"
+    },
+    {
+      "width": 384,
+      "src": "/_images/5aa7c0a77a30846f-384.webp"
+    },
+    {
+      "width": 640,
+      "src": "/_images/9a07518ef170d7ea-640.webp"
+    },
+    {
+      "width": 750,
+      "src": "/_images/7ae22918a7bf5964-750.webp"
+    },
+    {
+      "width": 828,
+      "src": "/_images/dd3d0c3e25f7a185-828.webp"
+    },
+    {
+      "width": 1080,
+      "src": "/_images/27a9eee7e1c693aa-1080.webp"
+    },
+    {
+      "width": 1200,
+      "src": "/_images/78281c6d51aa3ac8-1200.webp"
+    },
+    {
+      "width": 1254,
+      "src": "/_images/55e6bb4a56cccbb5-1254.webp"
+    }
+  ],
+  "/lion_deer_safari_logo.jpeg": [
+    {
+      "width": 32,
+      "src": "/_images/86ed0c590c1b78f0-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/dae53258e8c53b49-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/6ffa567caeb05ac0-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/3fc9d139cbda7aa4-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/bcca04daa0473104-128.webp"
+    },
+    {
+      "width": 256,
+      "src": "/_images/81e2ef80a9f33f47-256.webp"
+    },
+    {
+      "width": 384,
+      "src": "/_images/2fda2da4e81382eb-384.webp"
+    },
+    {
+      "width": 640,
+      "src": "/_images/4372c239f2cf3b27-640.webp"
+    },
+    {
+      "width": 750,
+      "src": "/_images/cb2d34538af88776-750.webp"
+    },
+    {
+      "width": 828,
+      "src": "/_images/99ec60726a35020c-828.webp"
+    },
+    {
+      "width": 1080,
+      "src": "/_images/24fbf40bf511ff6c-1080.webp"
+    },
+    {
+      "width": 1200,
+      "src": "/_images/06ea52f914c7b7fc-1200.webp"
+    },
+    {
+      "width": 1238,
+      "src": "/_images/bdd68b53cd9dd534-1238.webp"
+    }
+  ],
+  "/lion-transparent-opt.png": [
+    {
+      "width": 32,
+      "src": "/_images/38e2b53865f835a6-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/a625b99b3907d03b-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/5a09a75acfb07a77-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/f958c8759388e759-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/55d5c89b852a4f55-128.webp"
+    },
+    {
+      "width": 256,
+      "src": "/_images/60cefc24e1de70c0-256.webp"
+    },
+    {
+      "width": 384,
+      "src": "/_images/c14fadd41e42b0b2-384.webp"
+    },
+    {
+      "width": 566,
+      "src": "/_images/44d1a65aba1e901f-566.webp"
+    }
+  ],
+  "/media/lion-portrait-restored.webp": [
+    {
+      "width": 32,
+      "src": "/_images/d2e5be5778d976c4-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/888950888aa820f8-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/fee169ea989708dc-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/420639543454b45a-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/c5312fda657362f1-128.webp"
+    },
+    {
+      "width": 256,
+      "src": "/_images/6303fda0bb6ccc36-256.webp"
+    },
+    {
+      "width": 384,
+      "src": "/_images/5e1fac416e7f481b-384.webp"
+    },
+    {
+      "width": 640,
+      "src": "/_images/cc36a0568aca2f3b-640.webp"
+    },
+    {
+      "width": 750,
+      "src": "/_images/7ac432d903c2ea06-750.webp"
+    },
+    {
+      "width": 828,
+      "src": "/_images/1bf1e3585255b010-828.webp"
+    },
+    {
+      "width": 1080,
+      "src": "/_images/838bc8d520303abe-1080.webp"
+    },
+    {
+      "width": 1086,
+      "src": "/_images/b19540e150da60de-1086.webp"
+    }
+  ],
+  "/media/lion-portrait.webp": [
+    {
+      "width": 32,
+      "src": "/_images/ea7c4af1049e954c-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/47d7604cefc542d1-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/7397013128ecc4a0-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/17def5451881e1db-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/6dd9a5c9e0ce6502-128.webp"
+    },
+    {
+      "width": 256,
+      "src": "/_images/11ef985e07c0f49e-256.webp"
+    },
+    {
+      "width": 384,
+      "src": "/_images/5e510749210c84c1-384.webp"
+    },
+    {
+      "width": 640,
+      "src": "/_images/31526da1b15f02d3-640.webp"
+    },
+    {
+      "width": 750,
+      "src": "/_images/c056898989870b52-750.webp"
+    },
+    {
+      "width": 828,
+      "src": "/_images/af8dea5f0757cd0b-828.webp"
+    },
+    {
+      "width": 1080,
+      "src": "/_images/e784f609d428c201-1080.webp"
+    },
+    {
+      "width": 1200,
+      "src": "/_images/7d52d84d2fadc003-1200.webp"
+    },
+    {
+      "width": 1440,
+      "src": "/_images/ffd066b5c23e3038-1440.webp"
+    }
+  ],
+  "/media/lion-profile.webp": [
+    {
+      "width": 32,
+      "src": "/_images/626093232358f09f-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/c137c241434511c6-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/32737f50a76dd335-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/321088d13b5a0eef-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/8b4ab8c00cd2a475-128.webp"
+    },
+    {
+      "width": 256,
+      "src": "/_images/018a560ff606cc22-256.webp"
+    },
+    {
+      "width": 384,
+      "src": "/_images/de1d84d866653809-384.webp"
+    },
+    {
+      "width": 640,
+      "src": "/_images/8806b779725da469-640.webp"
+    },
+    {
+      "width": 750,
+      "src": "/_images/a3bd67aea549cfab-750.webp"
+    },
+    {
+      "width": 828,
+      "src": "/_images/31a37b812ef9dd1c-828.webp"
+    },
+    {
+      "width": 1080,
+      "src": "/_images/6628eb208b7bcd87-1080.webp"
+    },
+    {
+      "width": 1200,
+      "src": "/_images/23561c35ea72ae59-1200.webp"
+    },
+    {
+      "width": 1440,
+      "src": "/_images/5da3e15f07bbc24f-1440.webp"
+    }
+  ],
+  "/media/lion-resting.webp": [
+    {
+      "width": 32,
+      "src": "/_images/0399d1a0bfbcbc4c-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/26717817364b3fd9-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/beb337a851c80115-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/261f37b43f720e4f-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/d586eefce8b08353-128.webp"
+    },
+    {
+      "width": 256,
+      "src": "/_images/edb6430a14a1fff8-256.webp"
+    },
+    {
+      "width": 384,
+      "src": "/_images/74c17bcbb4a7eec2-384.webp"
+    },
+    {
+      "width": 640,
+      "src": "/_images/f2d6f7453b32778e-640.webp"
+    },
+    {
+      "width": 750,
+      "src": "/_images/83f6fe72dfe838dc-750.webp"
+    },
+    {
+      "width": 828,
+      "src": "/_images/514535b5fd975c9d-828.webp"
+    },
+    {
+      "width": 1080,
+      "src": "/_images/2008ea273cfe9161-1080.webp"
+    },
+    {
+      "width": 1200,
+      "src": "/_images/ac249156aa11801a-1200.webp"
+    },
+    {
+      "width": 1440,
+      "src": "/_images/583d4f126f40898c-1440.webp"
+    }
+  ],
+  "/media/lion-shelter.webp": [
+    {
+      "width": 32,
+      "src": "/_images/aa5e30ba99483cb7-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/25ec0a53545301c0-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/660d57bc49a2e31f-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/e89a40b62bd6e572-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/b488157d83c0b427-128.webp"
+    },
+    {
+      "width": 256,
+      "src": "/_images/4666525b8879fd0f-256.webp"
+    },
+    {
+      "width": 384,
+      "src": "/_images/c452dca57d65d0c9-384.webp"
+    },
+    {
+      "width": 640,
+      "src": "/_images/8471647c6df57746-640.webp"
+    },
+    {
+      "width": 750,
+      "src": "/_images/98c1ff842ac9dd5c-750.webp"
+    },
+    {
+      "width": 828,
+      "src": "/_images/6a7d8498a03bfc2d-828.webp"
+    },
+    {
+      "width": 1080,
+      "src": "/_images/2dab759ab0b7e308-1080.webp"
+    },
+    {
+      "width": 1200,
+      "src": "/_images/96683c31a2d8e6da-1200.webp"
+    },
+    {
+      "width": 1440,
+      "src": "/_images/0906963f852673df-1440.webp"
+    }
+  ],
+  "/media/lion-video-poster.webp": [
+    {
+      "width": 32,
+      "src": "/_images/fbfe15c109699e01-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/57e5c6187e1d5677-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/c0dbd38e5396684e-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/efbfb88f82c28c07-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/f4c06d8afe971c5e-128.webp"
+    },
+    {
+      "width": 256,
+      "src": "/_images/3c25cccc3b648a2b-256.webp"
+    },
+    {
+      "width": 384,
+      "src": "/_images/9f386ca1627d3ade-384.webp"
+    },
+    {
+      "width": 540,
+      "src": "/_images/8501ff8e5bf68e5f-540.webp"
+    }
+  ],
+  "/media/safari-hero.webp": [
+    {
+      "width": 32,
+      "src": "/_images/4c71bc5106fda45c-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/dba996dc5f8d4eab-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/c6ba5bd959c3bbb3-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/9669c69e25614a36-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/5ac473d825b276bd-128.webp"
+    },
+    {
+      "width": 256,
+      "src": "/_images/54feb5719693bbd6-256.webp"
+    },
+    {
+      "width": 384,
+      "src": "/_images/ac72bdfd590093ab-384.webp"
+    },
+    {
+      "width": 640,
+      "src": "/_images/31fdf21e0c596b25-640.webp"
+    },
+    {
+      "width": 750,
+      "src": "/_images/30e8873f3e4b0aff-750.webp"
+    },
+    {
+      "width": 828,
+      "src": "/_images/7980f9a4eeeaf457-828.webp"
+    },
+    {
+      "width": 1080,
+      "src": "/_images/a0056cfd096925dd-1080.webp"
+    },
+    {
+      "width": 1200,
+      "src": "/_images/e653a55dd380b1b7-1200.webp"
+    },
+    {
+      "width": 1672,
+      "src": "/_images/a116dc5473e21f22-1672.webp"
+    }
+  ],
+  "/ticket-deer.png": [
+    {
+      "width": 32,
+      "src": "/_images/6ccc0265fe850b22-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/5e08014d50155356-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/1b8dae05766e5966-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/5dbc58d543b3c570-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/d745466a9c2a4b06-128.webp"
+    },
+    {
+      "width": 136,
+      "src": "/_images/e66c1602b14bfdbf-136.webp"
+    }
+  ],
+  "/ticket-lion.png": [
+    {
+      "width": 32,
+      "src": "/_images/84ebaf1f22b2dcbf-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/0fcdf03a5c7c3c95-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/874f261f4e9916aa-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/7b0fd050176216c8-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/0e6beb517786697a-128.webp"
+    },
+    {
+      "width": 130,
+      "src": "/_images/29678191798be20e-130.webp"
+    }
+  ],
+  "/Wildlife_safari_chhatbir.jpeg": [
+    {
+      "width": 32,
+      "src": "/_images/b18dc3544a42fcac-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/57bbc01006dcee6e-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/2eb5fa0af17f7702-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/9b88664b27836ea4-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/4474845e3bdbbcea-128.webp"
+    },
+    {
+      "width": 256,
+      "src": "/_images/d96fac6c4e08b196-256.webp"
+    },
+    {
+      "width": 384,
+      "src": "/_images/7e20f65666ccc1e3-384.webp"
+    },
+    {
+      "width": 640,
+      "src": "/_images/baaeacbfb47e755e-640.webp"
+    },
+    {
+      "width": 750,
+      "src": "/_images/b0a1af56658d9026-750.webp"
+    },
+    {
+      "width": 828,
+      "src": "/_images/6ed3f86ffe55dccd-828.webp"
+    },
+    {
+      "width": 1080,
+      "src": "/_images/2f092568fdb5899b-1080.webp"
+    },
+    {
+      "width": 1150,
+      "src": "/_images/619ed94c82a47b49-1150.webp"
+    }
+  ],
+  "/Wildlife_safari_web.png": [
+    {
+      "width": 32,
+      "src": "/_images/493573818bd3ccb6-32.webp"
+    },
+    {
+      "width": 48,
+      "src": "/_images/b8acb97cdbc27315-48.webp"
+    },
+    {
+      "width": 64,
+      "src": "/_images/12e23cedeb2c87ab-64.webp"
+    },
+    {
+      "width": 96,
+      "src": "/_images/7d8875b879c61999-96.webp"
+    },
+    {
+      "width": 128,
+      "src": "/_images/b607045cbfca3400-128.webp"
+    },
+    {
+      "width": 256,
+      "src": "/_images/7e0f7ebbe9e25500-256.webp"
+    },
+    {
+      "width": 384,
+      "src": "/_images/5c01f592ab7b714d-384.webp"
+    },
+    {
+      "width": 640,
+      "src": "/_images/ef650cd8fd9f65b7-640.webp"
+    },
+    {
+      "width": 750,
+      "src": "/_images/88b5237e98b7b625-750.webp"
+    },
+    {
+      "width": 828,
+      "src": "/_images/a816b3d2feec347b-828.webp"
+    },
+    {
+      "width": 1080,
+      "src": "/_images/90eb3cf561c395e5-1080.webp"
+    },
+    {
+      "width": 1200,
+      "src": "/_images/0b7b883f47b2f4a6-1200.webp"
+    },
+    {
+      "width": 1536,
+      "src": "/_images/9f3a44f1f8b67b95-1536.webp"
+    }
+  ]
+}

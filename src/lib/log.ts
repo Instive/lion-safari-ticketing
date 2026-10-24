@@ -13,7 +13,7 @@
  * app — most already read fine as one-off lines. It exists for the place that
  * had no logging at all: a background job's handler throwing is caught
  * internally by pg-boss and recorded only in the `pgboss.job` table (see
- * `worker.ts`), so a ticket email or the nightly report failing every retry
+ * `worker.ts`), so a ticket email failing every retry
  * was previously invisible outside a manual database query.
  */
 type Fields = Record<string, unknown>;

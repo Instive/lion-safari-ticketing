@@ -1,3 +1,4 @@
+import { streamBytes } from "@/lib/stream";
 import { requireStaff } from "@/lib/auth/guards";
 import { ForbiddenError } from "@/domain/errors";
 import { csvRow, CSV_BOM } from "@/lib/csv";
@@ -54,47 +55,39 @@ export async function GET(req: Request): Promise<Response> {
   const unpaged: BookingFilters = { ...filters, page: 1 };
 
   const encoder = new TextEncoder();
-  const body = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      try {
-        controller.enqueue(encoder.encode(CSV_BOM + csvRow(COLUMNS)));
-
-        for await (const batch of streamBookings(unpaged)) {
-          let chunk = "";
-          for (const row of batch) {
-            chunk += csvRow([
-              row.bookingCode,
-              row.channel,
-              row.counterTender ?? "",
-              row.status,
-              row.ticketStatus ?? "",
-              row.visitDate,
-              formatDateTime(row.createdAt),
-              row.visitorCount,
-              row.boardedCount,
-              row.rateName ?? "Standard",
-              Number(paiseToRupeeString(row.perVisitorPaise)),
-              // Plain decimals, not "₹75.00" — the point of a spreadsheet is
-              // that the amount column adds up.
-              Number(paiseToRupeeString(row.amountTotal)),
-              Number(paiseToRupeeString(row.convenienceFee)),
-              row.soldOfflineAt ? formatDateTime(row.soldOfflineAt) : "",
-              row.customerName ?? "",
-              row.customerPhone ?? "",
-              row.customerEmail ?? "",
-              row.soldBy ?? "",
-              row.rateNote ?? "",
-            ]);
-          }
-          controller.enqueue(encoder.encode(chunk));
-        }
-        controller.close();
-      } catch (err) {
-        console.error("[export] failed mid-stream", err);
-        controller.error(err);
+  async function* chunks(): AsyncGenerator<Uint8Array> {
+    yield encoder.encode(CSV_BOM + csvRow(COLUMNS));
+    for await (const batch of streamBookings(unpaged)) {
+      let chunk = "";
+      for (const row of batch) {
+        chunk += csvRow([
+          row.bookingCode,
+          row.channel,
+          row.counterTender ?? "",
+          row.status,
+          row.ticketStatus ?? "",
+          row.visitDate,
+          formatDateTime(row.createdAt),
+          row.visitorCount,
+          row.boardedCount,
+          row.rateName ?? "Standard",
+          Number(paiseToRupeeString(row.perVisitorPaise)),
+          // Plain decimals, not "₹75.00" — the point of a spreadsheet is
+          // that the amount column adds up.
+          Number(paiseToRupeeString(row.amountTotal)),
+          Number(paiseToRupeeString(row.convenienceFee)),
+          row.soldOfflineAt ? formatDateTime(row.soldOfflineAt) : "",
+          row.customerName ?? "",
+          row.customerPhone ?? "",
+          row.customerEmail ?? "",
+          row.soldBy ?? "",
+          row.rateNote ?? "",
+        ]);
       }
-    },
-  });
+      yield encoder.encode(chunk);
+    }
+  }
+  const body = streamBytes(chunks(), req.signal);
 
   const filename = `bookings-${unpaged.dateField}-${unpaged.from}-to-${unpaged.to}.csv`;
 

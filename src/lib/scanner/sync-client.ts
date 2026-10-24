@@ -1,6 +1,11 @@
 "use client";
 
+import { singleFlight } from "@/lib/single-flight";
+import { fetchJson } from "@/lib/fetch-json";
 import {
+  beginManifest,
+  stageManifestPage,
+  completeManifest,
   applyTickets,
   getMeta,
   scannerDb,
@@ -70,6 +75,7 @@ type SyncResponse = {
   visitDate: string;
   tickets: CachedTicket[];
   staleThresholdSeconds: number;
+  nextCursor: string | null;
 };
 
 function headers(): HeadersInit {
@@ -93,49 +99,71 @@ export class DeviceUnauthorizedError extends Error {
  * manifest we then receive, rather than being overwritten by a stale ACTIVE
  * status from the server.
  */
-export async function runSync(): Promise<SyncState> {
+export const runSync = singleFlight(async (): Promise<SyncState> => {
+  // Serialize across tabs too: staging and the offline outbox live in IndexedDB.
+  if (typeof navigator !== "undefined" && navigator.locks) {
+    return navigator.locks.request("lion-safari-scanner-sync", syncManifest);
+  }
+  return syncManifest();
+});
+
+async function syncManifest(): Promise<SyncState> {
   await pushQueue();
-
   const meta = await getMeta();
-  const res = await fetch(`/api/scanner/sync?since=${meta.version}`, {
-    headers: headers(),
-    cache: "no-store",
-  });
+  const query = new URLSearchParams({ protocol: "2", since: String(meta.version) });
+  if (meta.visitDate) query.set("date", meta.visitDate);
+  if (meta.lastSyncAt) query.set("syncedAt", meta.lastSyncAt);
+  let payload: SyncResponse;
+  let first = true;
+  let full = false;
+  try {
+    do {
+      const { response, body } = await fetchJson<SyncResponse>(`/api/scanner/sync?${query}`, {
+        headers: headers(), cache: "no-store",
+      });
+      if (response.status === 401) throw new DeviceUnauthorizedError();
+      if (!response.ok) throw new Error(`sync failed: ${response.status}`);
+      payload = body;
+      if (first) {
+        full = payload.fullSync;
+        if (meta.visitDate && meta.visitDate !== payload.visitDate) {
+          // Yesterday's manifest must not admit guests during a day rollover.
+          await setMeta({ visitDate: null, version: 0, lastSyncAt: null });
+        }
+        if (full) await beginManifest();
+        first = false;
+      }
+      if (full) await stageManifestPage(payload.tickets);
+      else await applyTickets(payload.tickets, false);
+      if (payload.nextCursor) query.set("cursor", payload.nextCursor);
+    } while (payload.nextCursor);
 
-  if (res.status === 401) throw new DeviceUnauthorizedError();
-  if (!res.ok) throw new Error(`sync failed: ${res.status}`);
-
-  const payload = (await res.json()) as SyncResponse;
-
-  // The park day rolled over (or this is a new device): start the manifest clean.
-  const dayChanged = meta.visitDate !== null && meta.visitDate !== payload.visitDate;
-  await applyTickets(payload.tickets, payload.fullSync || dayChanged);
-
-  await setMeta({
-    version: payload.version,
-    // Server time, not the device clock — the device's clock is never trusted.
-    lastSyncAt: payload.serverTime,
-    visitDate: payload.visitDate,
-  });
-
-  return {
-    lastSyncAt: payload.serverTime,
-    version: payload.version,
-    visitDate: payload.visitDate,
-    queueDepth: await scannerDb.queue.count(),
-    staleThresholdSeconds: payload.staleThresholdSeconds,
-  };
+    const update = { version: payload.version, lastSyncAt: payload.serverTime, visitDate: payload.visitDate };
+    if (full) await completeManifest(update);
+    else await setMeta(update);
+    return {
+      ...update,
+      queueDepth: await scannerDb.queue.count(),
+      staleThresholdSeconds: payload.staleThresholdSeconds,
+    };
+  } catch (err) {
+    // Leave the completed watermark untouched: the next attempt safely replays.
+    if (full) await beginManifest();
+    throw err;
+  }
 }
 
 /**
  * Sends queued boardings. Every event carries the `clientEventId` minted when it
  * was recorded, so re-sending after a failed attempt can never double-board.
  */
-export async function pushQueue(): Promise<void> {
+export const pushQueue = singleFlight(async (): Promise<void> => {
   const queued = await scannerDb.queue.orderBy("clientEventId").limit(50).toArray();
   if (queued.length === 0) return;
 
-  const res = await fetch("/api/scanner/events", {
+  const { response: res, body } = await fetchJson<{
+    results: { clientEventId: string; accepted: boolean; duplicate: boolean; reason?: string }[];
+  }>("/api/scanner/events", {
     method: "POST",
     headers: headers(),
     body: JSON.stringify({
@@ -151,10 +179,6 @@ export async function pushQueue(): Promise<void> {
 
   if (res.status === 401) throw new DeviceUnauthorizedError();
   if (!res.ok) throw new Error(`event push failed: ${res.status}`);
-
-  const body = (await res.json()) as {
-    results: { clientEventId: string; accepted: boolean; duplicate: boolean; reason?: string }[];
-  };
 
   for (const result of body.results) {
     if (result.accepted) {
@@ -173,7 +197,7 @@ export async function pushQueue(): Promise<void> {
       }
     }
   }
-}
+});
 
 /** Records a boarding locally and queues it for the server. */
 export async function recordBoardingLocally(input: {

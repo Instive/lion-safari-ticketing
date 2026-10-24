@@ -198,7 +198,7 @@ This rules out a serverless-only host: `next start` and `npm run worker:prod` bo
 
 | Component | Build | Run |
 |---|---|---|
-| Web service | `npm ci && npm run build` | `npm start` |
+| Web service | `npm ci --include=dev && npm run build` | `npm start` |
 | Worker | `npm ci` | `npm run worker:prod` |
 
 Give both components the same environment variables, and run `npm run db:migrate` once per release (App Platform pre-deploy job, or manually).
@@ -212,6 +212,14 @@ Deployment notes specific to this codebase:
 - **`npm run worker:prod`** is the production worker command — unlike `npm run worker`, it does not look for `.env.local` and takes configuration from the platform.
 - Set `APP_BASE_URL` to the public HTTPS URL and register `<APP_BASE_URL>/api/payments/webhook/cashfree` in the Cashfree dashboard.
 - Keep `RECONCILE_MIN_AGE_MINUTES=5` in production so the webhook gets first chance.
+
+### Memory and scanner rollout
+
+- `npm run build` and `npm run dev` generate responsive WebP variants before Next starts. Sharp is used only by that preparation step. The custom image loader serves fingerprinted files under `public/_images`; the runtime image optimizer is disabled. Include build dependencies with `npm ci --include=dev`, even when `NODE_ENV=production`. Original public assets remain available for offline tickets.
+- CSV downloads produce one batch at a time as the client reads, and stop after cancellation. The email-report handler and admin button have been removed. Queue startup deletes the legacy `daily-report` schedules and queue, including pending retries. `REPORT_EMAIL_TO` retains its legacy name solely for group-enquiry notifications; ticket emails still work.
+- Scanner sync uses protocol 2 with at most 500 tickets per response. Full manifests are staged in IndexedDB and published atomically; an interrupted download does not advance the completed watermark. Changes arriving during pagination are picked up by the following sync. **After deploying this version, reload every scanner tab while online and let its first sync finish before relying on it offline.** Protocol 1 requests receive HTTP 426 rather than a silently truncated manifest.
+- Scanner and counter sync triggers share in-flight requests, use browser locks across tabs where available, and have network deadlines. Pending-payment pages poll a small status endpoint with backoff, pausing while hidden or offline.
+- Run `npm run images:generate && npm run test:memory` for local regression tests. `scripts/verify-memory-db.ts` additionally checks large manifests and legacy schedule removal; it requires an explicitly non-production, disposable local database whose name ends in `_test`. Existing scanner, report, and offline-counter verification scripts still apply.
 
 ## Before going live
 

@@ -126,5 +126,5 @@ export function proxy(request: NextRequest) {
 export const config = {
   // Without the exclusions the proxy would also gate CSS, JS and images, so a
   // customer page served on the public host would load without its assets.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpe?g|svg|ico)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|_images/|favicon.ico|.*\\.(?:png|jpe?g|svg|ico)$).*)"],
 };

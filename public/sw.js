@@ -11,7 +11,7 @@
  * worth being able to read in one sitting.
  */
 
-const VERSION = "ls-v2";
+const VERSION = "ls-v3";
 const SHELL_CACHE = `${VERSION}-shell`;
 const ASSET_CACHE = `${VERSION}-assets`;
 
@@ -133,6 +133,7 @@ function isImmutableAsset(url) {
     url.pathname.startsWith("/_next/static/") ||
     url.pathname.endsWith(".woff2") ||
     url.pathname.endsWith(".png") ||
+    url.pathname.endsWith(".webp") ||
     url.pathname.endsWith(".jpeg") ||
     url.pathname.endsWith(".jpg") ||
     url.pathname.endsWith(".svg")

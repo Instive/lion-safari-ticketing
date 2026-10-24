@@ -2,12 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { fetchJson } from "@/lib/fetch-json";
 
 /**
  * Shown while we wait for the payment webhook.
  *
  * This screen deliberately claims nothing about the payment: it refreshes the
- * server-rendered page until our own database says the booking is confirmed.
+ * small status endpoint until our own database says the booking has changed.
  * Reconciliation catches the case where the webhook never arrives at all, so
  * this can wait patiently rather than guessing.
  */
@@ -16,13 +17,63 @@ export function PaymentPending({ bookingCode }: { bookingCode: string }) {
   const [seconds, setSeconds] = useState(0);
 
   useEffect(() => {
-    const tick = setInterval(() => setSeconds((s) => s + 3), 3000);
-    const poll = setInterval(() => router.refresh(), 3000);
-    return () => {
-      clearInterval(tick);
-      clearInterval(poll);
+    const lifetime = new AbortController();
+    const startedAt = Date.now();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let running = false;
+    let finished = false;
+    let delay = 5_000;
+    let nextAllowedAt = 0;
+
+    async function poll() {
+      if (running || finished || lifetime.signal.aborted || document.hidden || !navigator.onLine) return;
+      if (Date.now() < nextAllowedAt) {
+        timer = setTimeout(poll, nextAllowedAt - Date.now());
+        return;
+      }
+      running = true;
+      setSeconds(Math.floor((Date.now() - startedAt) / 1000));
+      try {
+        const { response, body } = await fetchJson<{ status: string }>(
+          `/api/ticket/${encodeURIComponent(bookingCode)}/status`,
+          { cache: "no-store", signal: lifetime.signal },
+        );
+        if (response.ok && body.status !== "PENDING") {
+          finished = true;
+          router.refresh();
+        } else if (response.status === 429) {
+          const retry = Number(response.headers.get("retry-after"));
+          nextAllowedAt = Date.now() + (Number.isFinite(retry) && retry > 0 ? retry * 1000 : 60_000);
+        } else if (response.status === 404) {
+          finished = true;
+          router.refresh();
+        }
+      } catch {
+        // A brief outage must not imply that payment failed; try again later.
+      } finally {
+        running = false;
+        if (!finished && !lifetime.signal.aborted && !document.hidden && navigator.onLine) {
+          timer = setTimeout(poll, Math.max(delay, nextAllowedAt - Date.now()));
+          delay = Math.min(delay * 2, 30_000);
+        }
+      }
+    }
+    const resume = () => {
+      clearTimeout(timer);
+      if (!document.hidden && navigator.onLine) void poll();
     };
-  }, [router]);
+    timer = setTimeout(poll, delay);
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("online", resume);
+    window.addEventListener("offline", resume);
+    return () => {
+      lifetime.abort();
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("online", resume);
+      window.removeEventListener("offline", resume);
+    };
+  }, [router, bookingCode]);
 
   const slow = seconds >= 30;
 
