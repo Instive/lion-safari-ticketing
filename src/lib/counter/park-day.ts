@@ -41,7 +41,16 @@ export type SellBlockReason =
   /** The device clock reads earlier than the last sync — it cannot be believed. */
   | "CLOCK_BEHIND"
   /** The day has turned past everything the server stocked this book for. */
-  | "STALE_BOOK";
+  | "STALE_BOOK"
+  /**
+   * Offline selling is switched off park-wide (Admin → Devices).
+   *
+   * Unlike the other three, this is a DECISION rather than a fault: nothing is
+   * wrong with the till, and there is nothing staff can do about it from here.
+   * It is a separate reason precisely so the counter can say that instead of
+   * telling staff to fix a clock or reconnect.
+   */
+  | "OFFLINE_DISABLED";
 
 /**
  * @param syncedDay  the park day the SERVER reported at the last sync.
@@ -83,5 +92,7 @@ export function blockMessage(reason: SellBlockReason): string {
       return "This device's date looks wrong, so a ticket printed now could be refused at the gate. Fix the date, or reconnect to the internet.";
     case "STALE_BOOK":
       return "This till's ticket book is out of date. Reconnect to the internet before selling — a ticket printed now would be refused at the gate.";
+    case "OFFLINE_DISABLED":
+      return "The office has turned offline selling off. Online sales work as normal; if the internet drops, this till cannot issue tickets.";
   }
 }

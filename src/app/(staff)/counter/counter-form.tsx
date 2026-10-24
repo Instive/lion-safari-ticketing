@@ -54,6 +54,14 @@ type Props = {
    * page clears it once a sale actually succeeds (see clear-draft-sale-key).
    */
   idempotencyKey: string;
+  /**
+   * The park-wide offline switch, read server-side by the page.
+   *
+   * Passed down rather than fetched here because a till that has never enrolled
+   * has no device key, so it cannot ask `/api/counter/book` anything — without
+   * this it would be offered a "Set up this till" button that leads nowhere.
+   */
+  offlineSellingEnabled: boolean;
 };
 
 /** How long a sale is allowed to hang before offering an explicit way out. */
@@ -220,9 +228,10 @@ export function CounterForm({
   staffId,
   isTest,
   idempotencyKey,
+  offlineSellingEnabled,
 }: Props) {
   const [state, formAction] = useActionState<CashSaleState, FormData>(createCashSaleAction, {});
-  const counter = useOfflineCounter();
+  const counter = useOfflineCounter(offlineSellingEnabled);
   /** The ticket just sold from the local book, held until staff moves on. */
   const [offlineTicket, setOfflineTicket] = useState<OfflineTicketData | null>(null);
   const [offlineError, setOfflineError] = useState<string | null>(null);

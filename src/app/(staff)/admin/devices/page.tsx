@@ -3,9 +3,11 @@ import Link from "next/link";
 
 import { db } from "@/db";
 import { devices } from "@/db/schema";
+import { getParkSettings } from "@/domain/settings";
 import { requirePageStaff } from "@/lib/auth/guards";
 import { formatLocalTime } from "@/lib/time";
 import { DeviceManager } from "./device-manager";
+import { OfflineSwitch } from "./offline-switch";
 
 export const metadata = { title: "Devices — Lion Safari" };
 export const dynamic = "force-dynamic";
@@ -13,7 +15,10 @@ export const dynamic = "force-dynamic";
 export default async function DevicesPage() {
   await requirePageStaff(["ADMIN"]);
 
-  const rows = await db.select().from(devices).orderBy(desc(devices.createdAt));
+  const [rows, settings] = await Promise.all([
+    db.select().from(devices).orderBy(desc(devices.createdAt)),
+    getParkSettings(),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-6">
@@ -30,6 +35,8 @@ export default async function DevicesPage() {
         reissue it and hand over the new one. Deactivating a device locks it out on its next sync —
         use that if a terminal is lost or stolen.
       </p>
+
+      <OfflineSwitch enabled={settings.offlineSellingEnabled} />
 
       <DeviceManager
         devices={rows.map((d) => ({

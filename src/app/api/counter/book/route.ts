@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { BOOK_HORIZON_DAYS, allocateBook, loadBook } from "@/domain/booking/reserve";
+import { isOfflineSellingEnabled } from "@/domain/settings";
 import { authenticateDevice, deviceUnauthorized } from "@/lib/auth/device";
 import { businessDate, serverNow } from "@/lib/time";
 
@@ -37,6 +38,40 @@ export async function GET(req: Request): Promise<Response> {
   const today = businessDate();
   const dates = [today, ...upcoming(today, BOOK_HORIZON_DAYS)];
 
+  /*
+   * The park-wide offline switch (Admin → Devices), checked HERE rather than in
+   * the browser.
+   *
+   * The till's own "am I set up for offline selling?" state is a key in its
+   * localStorage, which an admin cannot reach — so a client-side check would be
+   * advisory only, and clearing site data or opening a second browser would
+   * hand the book straight back. The server is the only place the answer cannot
+   * be edited by the device asking the question.
+   *
+   * `offlineSelling: false` with an EMPTY book is what turns the counter screen
+   * off: the sync client treats no-book as `NO_SYNC` and refuses to sell
+   * offline, which is the existing block path (lib/counter/park-day.ts) rather
+   * than a second mechanism that could disagree with it.
+   *
+   * Note what is deliberately NOT done: blanks already allocated are left
+   * alone, not voided. They drop out of this response so the till stops selling
+   * from them, and `expireStaleBlanks` cancels them at rollover. Voiding mid-day
+   * would invalidate a ticket a guest is already holding and has already paid
+   * for.
+   */
+  if (!(await isOfflineSellingEnabled())) {
+    return Response.json(
+      {
+        serverTime: serverNow().toISOString(),
+        visitDate: today,
+        allocated: 0,
+        blanks: [],
+        offlineSelling: false,
+      },
+      { headers: { "cache-control": "no-store" } },
+    );
+  }
+
   let allocated = 0;
   if (query.data.readOnly === "0") {
     for (const visitDate of dates) {
@@ -57,6 +92,7 @@ export async function GET(req: Request): Promise<Response> {
       visitDate: today,
       allocated,
       blanks,
+      offlineSelling: true,
     },
     { headers: { "cache-control": "no-store" } },
   );

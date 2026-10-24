@@ -17,7 +17,7 @@
     "worker": "tsx --env-file=.env.local worker.ts",
     "verify:scanner": "tsx --env-file=.env.local scripts/verify-scanner.ts",
     "verify:auth": "tsx --env-file=.env.local scripts/verify-auth.ts",
-    "verify:all": "npm run verify:guards && npm run verify:domain && npm run verify:webhook && npm run verify:scanner && npm run verify:auth && npm run verify:counter && npm run verify:hosts && npm run verify:reports && npm run verify:offline-counter",
+    "verify:all": "npm run verify:guards && npm run verify:domain && npm run verify:webhook && npm run verify:scanner && npm run verify:auth && npm run verify:counter && npm run verify:hosts && npm run verify:reports && npm run verify:offline-counter && npm run verify:offline-switch",
     "verify:cashfree": "tsx --env-file=.env.local scripts/verify-cashfree.ts",
     "worker:prod": "tsx worker.ts",
     "db:migrate:prod": "tsx scripts/migrate-prod.ts",
@@ -27,7 +27,8 @@
     "verify:offline-counter": "tsx --env-file=.env.local scripts/verify-offline-counter.ts",
     "verify:guards": "tsx --env-file=.env.local scripts/verify-guards.ts",
     "db:seed:demo": "tsx --env-file=.env.local scripts/seed-demo.ts",
-    "db:reset": "npm run db:migrate && npm run db:seed && npm run db:seed:demo"
+    "db:reset": "npm run db:migrate && npm run db:seed && npm run db:seed:demo",
+    "verify:offline-switch": "tsx --env-file=.env.local scripts/verify-offline-switch.ts"
   },
   "dependencies": {
     "@date-fns/tz": "^1.5.0",

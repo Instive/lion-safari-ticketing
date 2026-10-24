@@ -43,6 +43,13 @@
       "when": 1789810524866,
       "tag": "0005_hot_champions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792848094883,
+      "tag": "0006_spotty_gambit",
+      "breakpoints": true
     }
   ]
 }

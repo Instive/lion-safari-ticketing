@@ -52,6 +52,15 @@ export type OfflineCounter = {
   state: CounterSyncState;
   /** True once the first book has been pulled — until then, selling offline is blind. */
   ready: boolean;
+  /**
+   * Offline selling is switched off park-wide.
+   *
+   * Separate from `state.blocked` because it has to be answerable on a till
+   * that has never enrolled: such a till has no device key, so it cannot sync,
+   * so `state` never fills in. The page passes the server's value in for that
+   * case, and a sync overrides it with what the server last actually said.
+   */
+  offlineDisabled: boolean;
   refresh: () => void;
   /** Consumes a blank and queues the sale, or explains why it could not. */
   sell: (input: OfflineSaleInput) => Promise<SellOutcome>;
@@ -74,7 +83,11 @@ const EMPTY_STATE: CounterSyncState = {
  * the server and still returns a ticket page. This exists only for the minutes
  * or hours when that is impossible.
  */
-export function useOfflineCounter(): OfflineCounter {
+/**
+ * @param offlineSellingEnabled the park-wide switch as the SERVER rendered it.
+ *   Used only until a sync reports it directly — see `offlineDisabled`.
+ */
+export function useOfflineCounter(offlineSellingEnabled = true): OfflineCounter {
   const online = useSyncExternalStore(subscribeOnline, getOnlineSnapshot, getOnlineServerSnapshot);
   const deviceKey = useSyncExternalStore(
     subscribeCounterDeviceKey,
@@ -179,5 +192,10 @@ export function useOfflineCounter(): OfflineCounter {
     [],
   );
 
-  return { online, enrolled, state, ready, refresh, sell };
+  // A landed sync is the better source: it reflects the switch as the server
+  // reported it to THIS till, and keeps reporting it after the link drops. The
+  // server-rendered prop only covers the window before that.
+  const offlineDisabled = state.blocked === "OFFLINE_DISABLED" || !offlineSellingEnabled;
+
+  return { online, enrolled, state, ready, offlineDisabled, refresh, sell };
 }
