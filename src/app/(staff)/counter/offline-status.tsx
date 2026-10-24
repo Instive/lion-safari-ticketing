@@ -25,21 +25,16 @@ export function OfflineStatus({ counter }: { counter: OfflineCounter }) {
   const totalStock = [...counter.state.stock.values()].reduce((sum, n) => sum + n, 0);
 
   /*
-   * Switched off park-wide, on a till that was never enrolled.
-   *
-   * Said here, ahead of the enrolment prompt, because offering "Set up this
-   * till" would be a dead end: enrolment would succeed, and the book would come
-   * back empty anyway. `state.blocked` only reaches this component after a sync
-   * has landed, so an unenrolled till learns it from the server flag instead.
+   * Switched off park-wide. Keep this quiet: online selling still works, so a
+   * warning card only distracts counter staff. This comes before the enrolment
+   * prompt because setting up a till while the switch is off is a dead end.
    */
-  if (!counter.enrolled && counter.offlineDisabled) {
+  if (counter.offlineDisabled) {
     return (
-      <section role="status" className="no-print rounded-xl border border-line bg-surface p-3 text-sm">
-        <p className="text-muted">
-          <span className="font-semibold text-foreground">Offline selling is off.</span> The office
-          has turned it off for all tills. Online sales work as normal.
-        </p>
-      </section>
+      <p role="status" className="no-print flex items-center gap-1.5 text-xs text-muted">
+        <span aria-hidden="true" className="size-1.5 rounded-full bg-muted" />
+        Offline selling off
+      </p>
     );
   }
 
