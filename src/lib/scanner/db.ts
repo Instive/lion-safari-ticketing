@@ -34,6 +34,9 @@ export type SyncMeta = {
   key: string;
   version: number;
   lastSyncAt: string | null;
+  /** Local receipt time for display only; server time remains the sync cursor. */
+  lastReceivedAt?: string | null;
+  staleThresholdSeconds?: number;
   visitDate: string | null;
 };
 

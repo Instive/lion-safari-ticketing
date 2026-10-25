@@ -61,10 +61,11 @@ export {
 
 export type SyncState = {
   lastSyncAt: string | null;
+  lastReceivedAt: string | null;
   version: number;
   visitDate: string | null;
   queueDepth: number;
-  /** Server time observed at the last successful sync, for staleness display. */
+  /** Maximum age of the completed manifest before warning staff. */
   staleThresholdSeconds: number;
 };
 
@@ -95,9 +96,8 @@ export class DeviceUnauthorizedError extends Error {
 /**
  * Pulls incremental changes and pushes any queued boardings.
  *
- * Push happens BEFORE pull so a boarding recorded offline is reflected in the
- * manifest we then receive, rather than being overwritten by a stale ACTIVE
- * status from the server.
+ * Upload and download are independent: a failing outbox must not starve new
+ * tickets. The cache merge preserves local boardings while either is in flight.
  */
 export const runSync = singleFlight(async (): Promise<SyncState> => {
   // Serialize across tabs too: staging and the offline outbox live in IndexedDB.
@@ -108,7 +108,17 @@ export const runSync = singleFlight(async (): Promise<SyncState> => {
 });
 
 async function syncManifest(): Promise<SyncState> {
-  await pushQueue();
+  const [upload, download] = await Promise.allSettled([pushQueue(), pullManifest()]);
+  for (const result of [upload, download]) {
+    if (result.status === "rejected" && result.reason instanceof DeviceUnauthorizedError) {
+      throw result.reason;
+    }
+  }
+  if (download.status === "rejected") throw download.reason;
+  return { ...download.value, queueDepth: await scannerDb.queue.count() };
+}
+
+async function pullManifest(): Promise<SyncState> {
   const meta = await getMeta();
   const query = new URLSearchParams({ protocol: "2", since: String(meta.version) });
   if (meta.visitDate) query.set("date", meta.visitDate);
@@ -128,7 +138,7 @@ async function syncManifest(): Promise<SyncState> {
         full = payload.fullSync;
         if (meta.visitDate && meta.visitDate !== payload.visitDate) {
           // Yesterday's manifest must not admit guests during a day rollover.
-          await setMeta({ visitDate: null, version: 0, lastSyncAt: null });
+          await setMeta({ visitDate: null, version: 0, lastSyncAt: null, lastReceivedAt: null });
         }
         if (full) await beginManifest();
         first = false;
@@ -138,7 +148,8 @@ async function syncManifest(): Promise<SyncState> {
       if (payload.nextCursor) query.set("cursor", payload.nextCursor);
     } while (payload.nextCursor);
 
-    const update = { version: payload.version, lastSyncAt: payload.serverTime, visitDate: payload.visitDate };
+    const update = { version: payload.version, lastSyncAt: payload.serverTime, visitDate: payload.visitDate,
+      lastReceivedAt: new Date().toISOString(), staleThresholdSeconds: payload.staleThresholdSeconds };
     if (full) await completeManifest(update);
     else await setMeta(update);
     return {
@@ -158,44 +169,44 @@ async function syncManifest(): Promise<SyncState> {
  * was recorded, so re-sending after a failed attempt can never double-board.
  */
 export const pushQueue = singleFlight(async (): Promise<void> => {
-  const queued = await scannerDb.queue.orderBy("clientEventId").limit(50).toArray();
-  if (queued.length === 0) return;
-
-  const { response: res, body } = await fetchJson<{
-    results: { clientEventId: string; accepted: boolean; duplicate: boolean; reason?: string }[];
-  }>("/api/scanner/events", {
-    method: "POST",
-    headers: headers(),
-    body: JSON.stringify({
-      events: queued.map((q) => ({
-        clientEventId: q.clientEventId,
-        ticketId: q.ticketId,
-        boardedCount: q.boardedCount,
-        createdOffline: q.createdOffline,
+  // Bound each pass so continuous gate traffic cannot hold the sync lock forever.
+  // Walk past transient failures so one bad event cannot starve later boardings.
+  const deadline = Date.now() + 10_000;
+  let after = "";
+  for (let batch = 0; batch < 10; batch++) {
+    const queued = await scannerDb.queue.where("clientEventId").above(after).limit(25).toArray();
+    if (!queued.length) return;
+    after = queued[queued.length - 1]!.clientEventId;
+    const { response: res, body } = await fetchJson<{
+      results: { clientEventId: string; accepted: boolean; duplicate: boolean; reason?: string }[];
+    }>("/api/scanner/events", {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({ events: queued.map((q) => ({
+        clientEventId: q.clientEventId, ticketId: q.ticketId,
+        boardedCount: q.boardedCount, createdOffline: q.createdOffline,
         deviceReportedAt: q.deviceReportedAt,
-      })),
-    }),
-  });
+      })) }),
+    });
+    if (res.status === 401) throw new DeviceUnauthorizedError();
+    if (!res.ok) throw new Error(`event push failed: ${res.status}`);
 
-  if (res.status === 401) throw new DeviceUnauthorizedError();
-  if (!res.ok) throw new Error(`event push failed: ${res.status}`);
-
-  for (const result of body.results) {
-    if (result.accepted) {
-      // Confirmed by the server (or already known to it) — safe to forget.
-      await scannerDb.queue.delete(result.clientEventId);
-    } else if (result.reason) {
-      // The server made a definitive judgement (already used, cancelled, …).
-      // Retrying will not change it, so stop holding the event.
-      await scannerDb.queue.delete(result.clientEventId);
-      console.warn(`[scanner] server rejected boarding: ${result.reason}`);
-    } else {
-      // Transient failure: keep it queued and try again next cycle.
-      const existing = await scannerDb.queue.get(result.clientEventId);
-      if (existing) {
-        await scannerDb.queue.put({ ...existing, attempts: existing.attempts + 1 });
+    // Only acknowledge IDs from this request. Missing results remain queued.
+    const results = new Map(body.results.map((result) => [result.clientEventId, result]));
+    await scannerDb.transaction("rw", scannerDb.queue, async () => {
+      for (const event of queued) {
+        const result = results.get(event.clientEventId);
+        if (result?.accepted || (result?.reason && [
+          "NOT_FOUND", "ALREADY_USED", "CANCELLED", "EXPIRED", "WRONG_DATE", "COUNT_MISMATCH",
+        ].includes(result.reason))) {
+          await scannerDb.queue.delete(event.clientEventId);
+          if (!result.accepted) console.warn(`[scanner] server rejected boarding: ${result.reason}`);
+        } else {
+          await scannerDb.queue.update(event.clientEventId, { attempts: event.attempts + 1 });
+        }
       }
-    }
+    });
+    if (Date.now() >= deadline) return;
   }
 });
 

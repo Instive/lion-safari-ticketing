@@ -1,5 +1,8 @@
 "use client";
 
+import { liveQuery } from "dexie";
+import { fetchJson } from "@/lib/fetch-json";
+
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { findByToken, getMeta, scannerDb, type CachedTicket } from "@/lib/scanner/db";
@@ -46,6 +49,7 @@ export function ScannerApp({ staffName, staffRole }: { staffName: string; staffR
   const videoRef = useRef<HTMLVideoElement>(null);
   // Held in a ref so the scan callback never acts on a stale value.
   const busyRef = useRef(false);
+  const confirmingRef = useRef(false);
   /**
    * True while a result is on screen. The camera keeps running behind the
    * overlay — stopping and restarting it between guests is far slower than
@@ -56,33 +60,61 @@ export function ScannerApp({ staffName, staffRole }: { staffName: string; staffR
 
   // --- sync loop -----------------------------------------------------------
   const sync = useCallback(async () => {
-    if (!getDeviceKey()) return;
+    if (!getDeviceKey() || !navigator.onLine) return SYNC_INTERVAL_MS;
     try {
       const state = await runSync();
-      setLastSyncAt(state.lastSyncAt);
-      setStaleThreshold(state.staleThresholdSeconds);
-      setQueueDepth(state.queueDepth);
+      return state.queueDepth > 0 ? 3_000 : SYNC_INTERVAL_MS;
     } catch (err) {
-      if (err instanceof DeviceUnauthorizedError) {
-        // The device was deactivated in admin — the stored key is worthless, so
-        // drop it and fall back to the enrolment screen.
-        clearDeviceKey();
-      }
-      // Any other failure is left visible through the staleness banner rather
-      // than being announced as an error the staff member cannot act on.
-      setQueueDepth(await scannerDb.queue.count());
+      if (err instanceof DeviceUnauthorizedError) clearDeviceKey();
+      return 5_000;
     }
   }, []);
 
+  // Restore persisted status on reload and reflect each upload batch immediately,
+  // including work performed by another scanner tab.
   useEffect(() => {
     if (!enrolled) return;
-    // Kick off the first sync on the next tick rather than inside the effect
-    // body, then keep it running on the interval.
-    const kickoff = setTimeout(() => void sync(), 0);
-    const id = setInterval(() => void sync(), SYNC_INTERVAL_MS);
+    const subscription = liveQuery(async () => ({
+      meta: await getMeta(), count: await scannerDb.queue.count(),
+    })).subscribe({
+      next: ({ meta, count }) => {
+        setLastSyncAt(meta.lastReceivedAt ?? meta.lastSyncAt);
+        setStaleThreshold(meta.staleThresholdSeconds ?? 300);
+        setQueueDepth(count);
+      },
+      error: (err) => console.error("[scanner] local status unavailable", err),
+    });
+    return () => subscription.unsubscribe();
+  }, [enrolled]);
+
+  useEffect(() => {
+    if (!enrolled) return;
+    let disposed = false;
+    let running = false;
+    let requested = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = async () => {
+      if (running) { requested = true; return; }
+      clearTimeout(timer);
+      running = true;
+      const delay = await sync();
+      running = false;
+      if (!disposed) timer = setTimeout(() => void tick(), requested ? 0 : delay);
+      requested = false;
+    };
+    const resume = () => {
+      if (document.visibilityState === "visible") void tick();
+    };
+    timer = setTimeout(() => void tick(), 0);
+    window.addEventListener("online", resume);
+    window.addEventListener("focus", resume);
+    document.addEventListener("visibilitychange", resume);
     return () => {
-      clearTimeout(kickoff);
-      clearInterval(id);
+      disposed = true;
+      clearTimeout(timer);
+      window.removeEventListener("online", resume);
+      window.removeEventListener("focus", resume);
+      document.removeEventListener("visibilitychange", resume);
     };
   }, [enrolled, sync]);
 
@@ -107,22 +139,20 @@ export function ScannerApp({ staffName, staffRole }: { staffName: string; staffR
       // Unknown locally. If we are online this may simply be a booking made
       // since the last sync, so ask the server.
       if (navigator.onLine) {
-        const res = await fetch("/api/scanner/lookup", {
+        const { response: res, body } = await fetchJson<{
+          valid: boolean; message: string | null; ticket: CachedTicket | null;
+        }>("/api/scanner/lookup", {
           method: "POST",
           headers: {
             "content-type": "application/json",
             "x-device-key": getDeviceKey() ?? "",
           },
           body: JSON.stringify({ token }),
-        });
+        }, 8_000);
+
+        if (res.status === 401) { clearDeviceKey(); return; }
 
         if (res.ok) {
-          const body = (await res.json()) as {
-            valid: boolean;
-            message: string | null;
-            ticket: CachedTicket | null;
-          };
-
           if (body.valid && body.ticket) {
             const ticket: CachedTicket = { ...body.ticket, tokenHash: "", usedAt: null };
             await scannerDb.tickets.put({ ...ticket, tokenHash: await hashOf(token) });
@@ -147,6 +177,11 @@ export function ScannerApp({ staffName, staffRole }: { staffName: string; staffR
       showingResultRef.current = true;
       setOutcome({ kind: "UNKNOWN_OFFLINE" });
       feedbackRejected();
+    } catch (err) {
+      console.warn("[scanner] ticket lookup unavailable", err);
+      showingResultRef.current = true;
+      setOutcome({ kind: "UNKNOWN_OFFLINE" });
+      feedbackRejected();
     } finally {
       // Brief lockout so one QR in front of the lens is not read repeatedly.
       setTimeout(() => {
@@ -159,17 +194,6 @@ export function ScannerApp({ staffName, staffRole }: { staffName: string; staffR
 
   // The screen must not sleep while the gate is open.
   useWakeLock(enrolled);
-
-  // Connectivity returning is the moment the queued boardings can be pushed;
-  // waiting up to a full sync interval to notice would leave the banner showing
-  // a backlog that has actually cleared.
-  useEffect(() => {
-    if (!enrolled || !online) return;
-    // Deferred a tick for the same reason as the kickoff above: the effect body
-    // itself must stay free of state updates.
-    const id = setTimeout(() => void sync(), 0);
-    return () => clearTimeout(id);
-  }, [enrolled, online, sync]);
 
   // iOS keeps the audio context suspended until a real user gesture, so the
   // first scan of a shift would otherwise be silent — the one beep staff most
@@ -184,19 +208,33 @@ export function ScannerApp({ staffName, staffRole }: { staffName: string; staffR
   // --- boarding ------------------------------------------------------------
   const confirmBoarding = useCallback(
     async (ticket: CachedTicket) => {
-      primeAudio();
-      await recordBoardingLocally({
-        ticketId: ticket.ticketId,
-        boardedCount: ticket.visitorCount,
-        online: navigator.onLine,
-      });
-      setBoarded(ticket);
-      showingResultRef.current = false;
-      setOutcome(null);
-      setQueueDepth(await scannerDb.queue.count());
-      // Push straight away when possible; otherwise the next sync drains it.
-      void sync();
-      setTimeout(() => setBoarded(null), 2500);
+      if (confirmingRef.current) return;
+      confirmingRef.current = true;
+      try {
+        primeAudio();
+        await recordBoardingLocally({
+          ticketId: ticket.ticketId,
+          boardedCount: ticket.visitorCount,
+          online: navigator.onLine,
+        });
+        setBoarded(ticket);
+        showingResultRef.current = true;
+        setOutcome(null);
+        // Push straight away when possible; otherwise the next sync drains it.
+        void sync();
+        setTimeout(() => {
+          setBoarded(null);
+          showingResultRef.current = false;
+        }, 2500);
+      } catch (err) {
+        console.error("[scanner] could not save boarding", err);
+        showingResultRef.current = true;
+        setOutcome({ kind: "REJECTED", message: "BOARDING NOT SAVED",
+          detail: "Please scan again. If this continues, use another scanner or the counter." });
+        feedbackRejected();
+      } finally {
+        confirmingRef.current = false;
+      }
     },
     [sync],
   );
@@ -419,7 +457,7 @@ function ResultOverlay({
         </p>
         <p className="mt-4 max-w-sm text-lg opacity-95">
           {isUnknownOffline
-            ? "This device is offline and does not know this ticket. It may be a new booking — send the guest to the counter, or wait for the connection to return."
+            ? "This ticket is not saved on this device and the server could not be reached. It may be a new booking — send the guest to the counter, or wait for the connection to return."
             : outcome.detail}
         </p>
         {!isUnknownOffline && outcome.ticket ? (

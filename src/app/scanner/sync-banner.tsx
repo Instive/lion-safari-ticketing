@@ -33,7 +33,8 @@ export function SyncBanner({
   if (!lastSyncAt) {
     return (
       <div className="bg-amber-500 px-4 py-3 text-center font-semibold text-black">
-        Not synced yet — waiting for first connection
+        <p>Downloading tickets — retrying automatically</p>
+        {queueDepth > 0 ? <p className="text-sm">{queueDepth} boarding(s) saved, waiting to upload.</p> : null}
       </div>
     );
   }
@@ -48,8 +49,8 @@ export function SyncBanner({
       <div className="bg-amber-500 px-4 py-3 text-center text-black">
         <p className="text-lg font-bold">⚠ NOT SYNCED FOR {formatAge(ageSeconds)}</p>
         <p className="text-sm">
-          Recent bookings may be missing. Check tickets at the counter if unsure.
-          {queueDepth > 0 ? ` ${queueDepth} boarding(s) waiting to upload.` : ""}
+          Saved tickets can still be scanned. Reconnecting automatically; new bookings may need a counter check.
+          {queueDepth > 0 ? ` ${queueDepth} boarding(s) saved on this device, waiting to upload.` : ""}
         </p>
       </div>
     );
@@ -64,7 +65,7 @@ export function SyncBanner({
         />
         {online ? "Online" : "Offline"} · synced {formatAge(ageSeconds)} ago
       </span>
-      {queueDepth > 0 ? <span>{queueDepth} to upload</span> : null}
+      {queueDepth > 0 ? <span>{queueDepth} saved · uploading automatically</span> : null}
     </div>
   );
 }

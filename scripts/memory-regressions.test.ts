@@ -7,7 +7,7 @@ import { singleFlight } from "@/lib/single-flight";
 import { fetchJson } from "@/lib/fetch-json";
 import { decodeSyncCursor, encodeSyncCursor } from "@/domain/scanner/cursor";
 import { scannerDb, getMeta, setMeta, resetScannerData, type CachedTicket } from "@/lib/scanner/db";
-import { runSync } from "@/lib/scanner/sync-client";
+import { runSync, pushQueue, recordBoardingLocally, DeviceUnauthorizedError } from "@/lib/scanner/sync-client";
 import staticImageLoader from "@/lib/static-image-loader";
 import manifest from "@/lib/generated/image-manifest.json";
 import { access } from "node:fs/promises";
@@ -153,4 +153,86 @@ test("image loader uses generated files for responsive sizes, never the runtime 
     }
   }
   assert.equal(staticImageLoader({ src: "/logo.svg", width: 100 }), "/logo.svg");
+});
+
+
+test("scanner drains a large backlog in bounded batches without a polling wait", async () => {
+  await resetScannerData();
+  for (let i = 0; i < 130; i++) {
+    await recordBoardingLocally({ ticketId: `ticket-${i}`, boardedCount: 1, online: false });
+  }
+  let batches = 0;
+  globalThis.fetch = async (url, init) => {
+    if (String(url).startsWith("/api/scanner/sync")) return page([], null);
+    const { events } = JSON.parse(String(init?.body));
+    assert.ok(events.length <= 25);
+    batches++;
+    return Response.json({ results: events.map((event: { clientEventId: string }) => ({
+      clientEventId: event.clientEventId, accepted: true, duplicate: false,
+    })) });
+  };
+  const state = await runSync();
+  assert.equal(batches, 6);
+  assert.equal(state.queueDepth, 0);
+});
+
+test("upload outage does not block new tickets or revive a locally boarded ticket", async () => {
+  await resetScannerData();
+  await scannerDb.tickets.put(ticket("boarded"));
+  const event = await recordBoardingLocally({ ticketId: "boarded", boardedCount: 1, online: false });
+  globalThis.fetch = async (url) => String(url).startsWith("/api/scanner/events")
+    ? new Response(null, { status: 503 })
+    : page([ticket("boarded"), ticket("new")], null);
+  const state = await runSync();
+  assert.equal(state.queueDepth, 1);
+  assert.ok(await scannerDb.queue.get(event.clientEventId));
+  assert.ok(await scannerDb.tickets.get("new"));
+  assert.equal((await scannerDb.tickets.get("boarded"))?.status, "USED");
+  assert.ok(Math.abs(Date.now() - Date.parse(state.lastReceivedAt!)) < 2000);
+  assert.equal((await getMeta()).lastSyncAt, "2026-10-24T03:00:00.000Z");
+});
+
+test("lost acknowledgement retries the same boarding ID and clears a duplicate receipt", async () => {
+  await resetScannerData();
+  const event = await recordBoardingLocally({ ticketId: "a", boardedCount: 1, online: true });
+  globalThis.fetch = async () => { throw new TypeError("connection lost after commit"); };
+  await assert.rejects(pushQueue());
+  assert.equal(await scannerDb.queue.count(), 1);
+  globalThis.fetch = async (_url, init) => {
+    const { events } = JSON.parse(String(init?.body));
+    assert.equal(events[0].clientEventId, event.clientEventId);
+    return Response.json({ results: [{ clientEventId: event.clientEventId, accepted: true, duplicate: true }] });
+  };
+  await pushQueue();
+  assert.equal(await scannerDb.queue.count(), 0);
+});
+
+test("transient or missing results stay queued without starving later batches", async () => {
+  await resetScannerData();
+  for (let i = 0; i < 60; i++) {
+    await scannerDb.queue.put({ clientEventId: String(i).padStart(3, "0"), ticketId: `t${i}`,
+      boardedCount: 1, createdOffline: true, deviceReportedAt: new Date().toISOString(), attempts: 0 });
+  }
+  globalThis.fetch = async (_url, init) => {
+    const { events } = JSON.parse(String(init?.body));
+    return Response.json({ results: events.filter((e: { clientEventId: string }) => e.clientEventId !== "001")
+      .map((e: { clientEventId: string }) => ({ ...e, accepted: e.clientEventId !== "000", duplicate: false })) });
+  };
+  await pushQueue();
+  assert.deepEqual(await scannerDb.queue.orderBy("clientEventId").primaryKeys(), ["000", "001"]);
+  assert.equal((await scannerDb.queue.get("000"))?.attempts, 1);
+});
+
+test("uploads succeed independently of a manifest outage; unauthorized devices still fail", async () => {
+  await resetScannerData();
+  await recordBoardingLocally({ ticketId: "a", boardedCount: 1, online: false });
+  globalThis.fetch = async (url, init) => {
+    if (String(url).startsWith("/api/scanner/sync")) return new Response(null, { status: 503 });
+    const { events } = JSON.parse(String(init?.body));
+    return Response.json({ results: events.map((event: { clientEventId: string }) => ({ ...event, accepted: true })) });
+  };
+  await assert.rejects(runSync(), /503/);
+  assert.equal(await scannerDb.queue.count(), 0);
+  globalThis.fetch = async () => new Response(null, { status: 401 });
+  await assert.rejects(runSync(), DeviceUnauthorizedError);
 });
