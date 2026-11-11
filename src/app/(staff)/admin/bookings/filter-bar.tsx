@@ -115,6 +115,7 @@ export function FilterBar({ filters }: { filters: BookingFilters }) {
             ["ALL", "All channels"],
             ["ONLINE", "Online"],
             ["COUNTER", "Counter"],
+            ["COUNTER_UPI", "Counter · UPI only"],
           ]}
         />
         <Select
