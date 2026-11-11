@@ -67,7 +67,7 @@ export const STATUS_LABELS: Record<StatusFilter, string> = {
   RESERVED: "Unsold blanks (ticket books)",
 };
 
-export type ChannelFilter = "ALL" | "ONLINE" | "COUNTER";
+export type ChannelFilter = "ALL" | "ONLINE" | "COUNTER" | "COUNTER_UPI";
 
 export type BookingFilters = {
   preset: RangePreset;

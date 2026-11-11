@@ -112,7 +112,9 @@ export function parseFilters(params: RawParams): BookingFilters {
     to,
     dateField: one(params, "on") === "booked" ? "booked" : "visit",
     channel:
-      channelRaw === "ONLINE" || channelRaw === "COUNTER" ? (channelRaw as ChannelFilter) : "ALL",
+      channelRaw === "ONLINE" || channelRaw === "COUNTER" || channelRaw === "COUNTER_UPI"
+        ? (channelRaw as ChannelFilter)
+        : "ALL",
     status: (STATUS_FILTERS as readonly string[]).includes(statusRaw ?? "")
       ? (statusRaw as StatusFilter)
       : "ALL",
@@ -155,7 +157,11 @@ function whereFor(filters: BookingFilters): SQL {
     sql`${dateExpr} between ${filters.from}::date and ${filters.to}::date`,
   ];
 
-  if (filters.channel !== "ALL") clauses.push(eq(bookings.channel, filters.channel));
+  if (filters.channel === "COUNTER_UPI") {
+    clauses.push(eq(bookings.channel, "COUNTER"), eq(bookings.counterTender, "UPI"));
+  } else if (filters.channel !== "ALL") {
+    clauses.push(eq(bookings.channel, filters.channel));
+  }
 
   const statuses = statusesFor(filters.status);
   if (statuses) {
