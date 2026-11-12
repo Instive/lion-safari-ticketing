@@ -1,4 +1,4 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { bookings, rateCategories, type BookingStatus } from "@/db/schema";
@@ -166,4 +166,19 @@ export async function dayEndSummary(staffId: string, visitDate: string): Promise
     firstSaleAt: totals?.firstSaleAt ?? null,
     lastSaleAt: totals?.lastSaleAt ?? null,
   };
+}
+
+/** Browse/search one's own sales; a full ticket number permits cross-counter recovery. */
+export function counterLookupMatches(staffId: string, today: string, query: string) {
+  const mine = and(eq(bookings.channel, "COUNTER"), eq(bookings.createdByStaffId, staffId));
+  return query
+    ? or(
+        eq(bookings.bookingCode, query.toUpperCase()),
+        and(mine, or(
+          ilike(bookings.bookingCode, `%${query}%`),
+          ilike(bookings.customerPhone, `%${query}%`),
+          ilike(bookings.customerName, `%${query}%`),
+        )),
+      )
+    : and(mine, eq(bookings.visitDate, today));
 }

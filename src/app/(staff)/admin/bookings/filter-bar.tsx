@@ -21,7 +21,7 @@ import {
  * carrying the same query string rather than a second, drifting definition of
  * what is on screen.
  */
-export function FilterBar({ filters }: { filters: BookingFilters }) {
+export function FilterBar({ filters, counters, targetPath = "/admin/bookings" }: { filters: BookingFilters; counters: { id: string; username: string }[]; targetPath?: string }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -41,7 +41,7 @@ export function FilterBar({ filters }: { filters: BookingFilters }) {
     // Any change of filter invalidates the page number.
     params.delete("page");
 
-    router.push(`/admin/bookings?${params.toString()}`);
+    router.push(`${targetPath}?${params.toString()}`);
   }
 
   return (
@@ -108,15 +108,23 @@ export function FilterBar({ filters }: { filters: BookingFilters }) {
         />
         <Select
           name="channel"
-          label="Channel"
+          label="Payment / channel"
           value={filters.channel}
-          onChange={(value) => apply({ channel: value === "ALL" ? "" : value })}
+          onChange={(value) => apply({ channel: value === "ALL" ? "" : value, ...(value === "ONLINE" ? { counter: "" } : {}) })}
           options={[
             ["ALL", "All channels"],
             ["ONLINE", "Online"],
             ["COUNTER", "Counter"],
-            ["COUNTER_UPI", "Counter · UPI only"],
+            ["COUNTER_UPI", "UPI"],
+            ["COUNTER_CASH", "Cash"],
           ]}
+        />
+        <Select
+          name="counter"
+          label="Counter"
+          value={filters.counterId ?? ""}
+          onChange={(value) => apply({ counter: value, ...(value && filters.channel === "ONLINE" ? { channel: "COUNTER" } : {}) })}
+          options={[["", "All counters"], ...counters.map(c => [c.id, c.username] as [string, string])]}
         />
         <Select
           name="status"
@@ -129,6 +137,7 @@ export function FilterBar({ filters }: { filters: BookingFilters }) {
         <div className="flex min-w-[14rem] flex-1 gap-2">
           <input
             name="q"
+            aria-label="Search bookings"
             defaultValue={filters.q}
             placeholder="Code, phone, name or email"
             className="w-full rounded-lg border border-line bg-background px-3 py-2 text-sm outline-none focus:border-brand"
