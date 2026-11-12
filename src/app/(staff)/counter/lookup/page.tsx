@@ -1,6 +1,7 @@
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import Link from "next/link";
 
+import { counterLookupMatches } from "@/domain/reports/counter";
 import { db } from "@/db";
 import { bookings, tickets, type TicketStatus } from "@/db/schema";
 import { requirePageStaff } from "@/lib/auth/guards";
@@ -19,26 +20,12 @@ export const dynamic = "force-dynamic";
  * exact code or phone number still has a way to find it, not just a dead end.
  */
 export default async function LookupPage({ searchParams }: PageProps<"/counter/lookup">) {
-  await requirePageStaff(["COUNTER"]);
+  const staff = await requirePageStaff(["COUNTER"]);
   const { q } = await searchParams;
   const query = typeof q === "string" ? q.trim() : "";
   const today = businessDate();
 
-  /*
-   * All three fields, all partial, all case-insensitive.
-   *
-   * The old search matched a booking code only in full and only in upper case,
-   * which meant the one thing a guest can usually offer — most of the code off
-   * a creased ticket, or their own name — found nothing at all. A guest who has
-   * lost their ticket is the entire reason this screen exists.
-   */
-  const matches = query
-    ? or(
-        ilike(bookings.bookingCode, `%${query}%`),
-        ilike(bookings.customerPhone, `%${query}%`),
-        ilike(bookings.customerName, `%${query}%`),
-      )
-    : and(eq(bookings.channel, "COUNTER"), eq(bookings.visitDate, today));
+  const matches = counterLookupMatches(staff.id, today, query);
 
   /*
    * Never an unsold blank.
@@ -98,7 +85,7 @@ export default async function LookupPage({ searchParams }: PageProps<"/counter/l
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Find a ticket</h1>
           <p className="text-muted mt-0.5 text-sm">
-            Reprints the ticket that already exists — it never issues a new one.
+            Search your counter’s tickets. Enter a full ticket number to reprint a ticket from another counter.
           </p>
         </div>
         <Link
@@ -134,7 +121,7 @@ export default async function LookupPage({ searchParams }: PageProps<"/counter/l
 
       <div className="mt-6 mb-3 flex flex-wrap items-baseline justify-between gap-3">
         <p className="text-muted min-w-0 break-words text-sm">
-          {query ? `Matching “${query}”` : "Today’s counter sales"}
+          {query ? `Matching “${query}”` : "Your counter’s sales today"}
           {results.length > 0 ? ` · ${results.length}` : ""}
           {/*
             A full page means the list was cut off, and staff have no other way
@@ -165,7 +152,7 @@ export default async function LookupPage({ searchParams }: PageProps<"/counter/l
               </p>
             </>
           ) : (
-            <p className="text-muted">No counter sales yet today.</p>
+            <p className="text-muted">Your counter has no sales yet today.</p>
           )}
         </div>
       ) : (

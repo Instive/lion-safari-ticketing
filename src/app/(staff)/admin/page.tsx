@@ -1,6 +1,10 @@
 import { and, eq, sql } from "drizzle-orm";
 import Link from "next/link";
 
+import { bookingTotals, counterOptions, filtersToQuery, parseFilters, salesByCounter } from "@/domain/reports/bookings";
+import { FilterBar } from "./bookings/filter-bar";
+import { CounterSales } from "./counter-sales";
+
 import { db } from "@/db";
 import { boardingEvents, bookings, devices, tickets } from "@/db/schema";
 import { requirePageStaff } from "@/lib/auth/guards";
@@ -20,9 +24,14 @@ const SECTIONS = [
   { href: "/admin/staff", label: "Staff" },
 ];
 
-export default async function AdminDashboard() {
+export default async function AdminDashboard({ searchParams }: PageProps<"/admin">) {
   await requirePageStaff(["ADMIN"]);
   const today = businessDate();
+  const filters = parseFilters({ range: "today", ...await searchParams });
+  const [counters, counterSales, filteredTotals] = await Promise.all([
+    counterOptions(), salesByCounter(filters), bookingTotals(filters),
+  ]);
+  const salesQuery = filtersToQuery(filters);
   // Computed by the database so every screen agrees on "now". This is a
   // ROLLING 24-hour window, not the start of the park day — it backs the
   // "awaiting payment" figure, which is deliberately a recency question
@@ -177,6 +186,23 @@ export default async function AdminDashboard() {
             hint="Gateway · settles separately"
           />
         </dl>
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-line bg-background p-4 sm:p-5">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Explore sales</h2>
+            <p className="text-muted mt-1 text-sm">Compare counters and filter by payment method or date.</p>
+          </div>
+          <Link href={`/admin/bookings?${salesQuery}`} className="text-brand text-sm font-semibold underline underline-offset-4">Tickets &amp; CSV export →</Link>
+        </div>
+        <FilterBar key={salesQuery} filters={filters} counters={counters} targetPath="/admin" />
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <Stat label="Filtered sales" value={formatPaise(filteredTotals.collectedPaise)} hint="Confirmed sales matching the filters" emphasis />
+          <Stat label="Tickets" value={String(filteredTotals.confirmedBookings)} hint={`${filteredTotals.online} online · ${filteredTotals.counter} counter`} />
+          <Stat label="Visitors" value={String(filteredTotals.visitors)} hint={`${formatVisitDate(filters.from)} — ${formatVisitDate(filters.to)}`} />
+        </div>
+        <CounterSales filters={filters} counters={counters} rows={counterSales} />
       </section>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-2">

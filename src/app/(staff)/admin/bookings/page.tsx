@@ -5,6 +5,8 @@ import { formatPaise } from "@/lib/money";
 import { formatLocalTime, formatVisitDate } from "@/lib/time";
 import {
   PAGE_SIZE,
+  counterOptions,
+  salesByCounter,
   bookingTotals,
   countBookings,
   dailyTotals,
@@ -13,6 +15,7 @@ import {
   parseFilters,
 } from "@/domain/reports/bookings";
 import { StatusPill } from "../status-pill";
+import { CounterSales } from "../counter-sales";
 import { FilterBar } from "./filter-bar";
 
 export const metadata = { title: "Bookings — Lion Safari" };
@@ -24,11 +27,13 @@ export default async function AdminBookingsPage({ searchParams }: PageProps<"/ad
   const filters = parseFilters(await searchParams);
   const singleDay = filters.from === filters.to;
 
-  const [rows, totals, total, byDay] = await Promise.all([
+  const [rows, totals, total, byDay, counters, counterSales] = await Promise.all([
     listBookings(filters),
     bookingTotals(filters),
     countBookings(filters),
     singleDay ? Promise.resolve([]) : dailyTotals(filters),
+    counterOptions(),
+    salesByCounter(filters),
   ]);
 
   const query = filtersToQuery(filters);
@@ -65,7 +70,8 @@ export default async function AdminBookingsPage({ searchParams }: PageProps<"/ad
         </div>
       </div>
 
-      <FilterBar filters={filters} />
+      <FilterBar key={query} filters={filters} counters={counters} />
+      <CounterSales filters={filters} counters={counters} rows={counterSales} />
 
       <section className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat

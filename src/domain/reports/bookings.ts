@@ -105,6 +105,7 @@ export function parseFilters(params: RawParams): BookingFilters {
   const statusRaw = one(params, "status");
   const channelRaw = one(params, "channel");
   const pageRaw = Number(one(params, "page") ?? "1");
+  const counterRaw = one(params, "counter");
 
   return {
     preset,
@@ -112,32 +113,18 @@ export function parseFilters(params: RawParams): BookingFilters {
     to,
     dateField: one(params, "on") === "booked" ? "booked" : "visit",
     channel:
-      channelRaw === "ONLINE" || channelRaw === "COUNTER" || channelRaw === "COUNTER_UPI"
+      channelRaw === "ONLINE" || channelRaw === "COUNTER" || channelRaw === "COUNTER_UPI" || channelRaw === "COUNTER_CASH"
         ? (channelRaw as ChannelFilter)
         : "ALL",
+    counterId: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(counterRaw ?? "")
+      ? counterRaw
+      : undefined,
     status: (STATUS_FILTERS as readonly string[]).includes(statusRaw ?? "")
       ? (statusRaw as StatusFilter)
       : "ALL",
     q: (one(params, "q") ?? "").trim().slice(0, 120),
     page: Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1,
   };
-}
-
-/** Rebuilds a query string, so links and the export share one filter state. */
-export function filtersToQuery(filters: BookingFilters, overrides: Partial<BookingFilters> = {}): string {
-  const merged = { ...filters, ...overrides };
-  const params = new URLSearchParams();
-  params.set("range", merged.preset);
-  if (merged.preset === "custom") {
-    params.set("from", merged.from);
-    params.set("to", merged.to);
-  }
-  if (merged.dateField !== "visit") params.set("on", merged.dateField);
-  if (merged.channel !== "ALL") params.set("channel", merged.channel);
-  if (merged.status !== "ALL") params.set("status", merged.status);
-  if (merged.q) params.set("q", merged.q);
-  if (merged.page > 1) params.set("page", String(merged.page));
-  return params.toString();
 }
 
 /**
@@ -151,17 +138,19 @@ function businessDateExpr(dateField: DateField): SQL<string> {
     : sql<string>`(${bookings.createdAt} at time zone ${sql.raw(`'${env.APP_TIMEZONE}'`)})::date`;
 }
 
-function whereFor(filters: BookingFilters): SQL {
+export function whereFor(filters: BookingFilters): SQL {
   const dateExpr = businessDateExpr(filters.dateField);
   const clauses: (SQL | undefined)[] = [
     sql`${dateExpr} between ${filters.from}::date and ${filters.to}::date`,
   ];
 
-  if (filters.channel === "COUNTER_UPI") {
-    clauses.push(eq(bookings.channel, "COUNTER"), eq(bookings.counterTender, "UPI"));
+  if (filters.channel === "COUNTER_UPI" || filters.channel === "COUNTER_CASH") {
+    clauses.push(eq(bookings.channel, "COUNTER"), eq(bookings.counterTender, filters.channel === "COUNTER_UPI" ? "UPI" : "CASH"));
   } else if (filters.channel !== "ALL") {
     clauses.push(eq(bookings.channel, filters.channel));
   }
+
+  if (filters.counterId) clauses.push(eq(bookings.channel, "COUNTER"), eq(bookings.createdByStaffId, filters.counterId));
 
   const statuses = statusesFor(filters.status);
   if (statuses) {
@@ -389,4 +378,23 @@ export async function countBookings(filters: BookingFilters): Promise<number> {
     .from(bookings)
     .where(whereFor(filters));
   return row?.count ?? 0;
+}
+
+/** Includes inactive staff and former counter sellers for historical reporting. */
+export async function counterOptions() {
+  return db.select({ id: staffUsers.id, username: staffUsers.username }).from(staffUsers)
+    .where(or(eq(staffUsers.role, "COUNTER"), sql`exists (select 1 from ${bookings} where ${bookings.createdByStaffId} = ${staffUsers.id} and ${bookings.channel} = 'COUNTER')`))
+    .orderBy(asc(staffUsers.username));
+}
+
+export async function salesByCounter(filters: BookingFilters) {
+  const rows = await db.select({
+    id: bookings.createdByStaffId,
+    sales: sql<number>`count(*)::int`,
+    cash: sql<number>`coalesce(sum(${bookings.amountTotal}) filter (where ${bookings.counterTender} = 'CASH'), 0)::bigint`,
+    upi: sql<number>`coalesce(sum(${bookings.amountTotal}) filter (where ${bookings.counterTender} = 'UPI'), 0)::bigint`,
+    total: sql<number>`coalesce(sum(${bookings.amountTotal}), 0)::bigint`,
+  }).from(bookings).where(and(whereFor(filters), eq(bookings.channel, "COUNTER"), inArray(bookings.status, ["PAID", "CASH_CONFIRMED"])))
+    .groupBy(bookings.createdByStaffId);
+  return rows.map(row => ({ ...row, cash: Number(row.cash), upi: Number(row.upi), total: Number(row.total) }));
 }

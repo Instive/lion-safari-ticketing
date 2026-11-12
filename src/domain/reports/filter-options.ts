@@ -59,7 +59,7 @@ export const STATUS_LABELS: Record<StatusFilter, string> = {
   CONFIRMED: "Confirmed (paid + cash)",
   PENDING: "Awaiting payment",
   PAID: "Paid online",
-  CASH_CONFIRMED: "Cash at counter",
+  CASH_CONFIRMED: "Confirmed at counter",
   FAILED: "Failed",
   CANCELLED: "Cancelled",
   REFUND_PENDING: "Refund pending",
@@ -67,7 +67,7 @@ export const STATUS_LABELS: Record<StatusFilter, string> = {
   RESERVED: "Unsold blanks (ticket books)",
 };
 
-export type ChannelFilter = "ALL" | "ONLINE" | "COUNTER" | "COUNTER_UPI";
+export type ChannelFilter = "ALL" | "ONLINE" | "COUNTER" | "COUNTER_UPI" | "COUNTER_CASH";
 
 export type BookingFilters = {
   preset: RangePreset;
@@ -76,6 +76,7 @@ export type BookingFilters = {
   to: string;
   dateField: DateField;
   channel: ChannelFilter;
+  counterId?: string;
   status: StatusFilter;
   q: string;
   page: number;
@@ -104,6 +105,7 @@ export function filtersToQuery(
   }
   if (merged.dateField !== "visit") params.set("on", merged.dateField);
   if (merged.channel !== "ALL") params.set("channel", merged.channel);
+  if (merged.counterId) params.set("counter", merged.counterId);
   if (merged.status !== "ALL") params.set("status", merged.status);
   if (merged.q) params.set("q", merged.q);
   if (merged.page > 1) params.set("page", String(merged.page));
