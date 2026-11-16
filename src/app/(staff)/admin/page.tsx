@@ -1,9 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import Link from "next/link";
 
-import { bookingTotals, counterOptions, filtersToQuery, parseFilters, salesByCounter } from "@/domain/reports/bookings";
-import { FilterBar } from "./bookings/filter-bar";
-import { CounterSales } from "./counter-sales";
+import { counterOptions, filtersToQuery, parseFilters, salesByCounter } from "@/domain/reports/bookings";
 
 import { db } from "@/db";
 import { boardingEvents, bookings, devices, tickets } from "@/db/schema";
@@ -24,14 +22,13 @@ const SECTIONS = [
   { href: "/admin/staff", label: "Staff" },
 ];
 
-export default async function AdminDashboard({ searchParams }: PageProps<"/admin">) {
+export default async function AdminDashboard() {
   await requirePageStaff(["ADMIN"]);
   const today = businessDate();
-  const filters = parseFilters({ range: "today", ...await searchParams });
-  const [counters, counterSales, filteredTotals] = await Promise.all([
-    counterOptions(), salesByCounter(filters), bookingTotals(filters),
+  const filters = parseFilters({ range: "today" });
+  const [counters, counterSales] = await Promise.all([
+    counterOptions(), salesByCounter(filters),
   ]);
-  const salesQuery = filtersToQuery(filters);
   // Computed by the database so every screen agrees on "now". This is a
   // ROLLING 24-hour window, not the start of the park day — it backs the
   // "awaiting payment" figure, which is deliberately a recency question
@@ -140,15 +137,34 @@ export default async function AdminDashboard({ searchParams }: PageProps<"/admin
         </nav>
       </div>
 
-      <div className="mt-6 grid gap-3 lg:grid-cols-3">
-        <Stat
-          label="Revenue"
-          value={formatPaise(todayStats?.revenue ?? 0)}
-          hint={`${todayStats?.bookingCount ?? 0} confirmed ${
-            (todayStats?.bookingCount ?? 0) === 1 ? "booking" : "bookings"
-          }`}
-          emphasis
-        />
+      <div className="mt-6 grid items-start gap-3 lg:grid-cols-3">
+        <div className="space-y-3">
+          <Stat
+            label="Revenue"
+            value={formatPaise(todayStats?.revenue ?? 0)}
+            hint={`${todayStats?.bookingCount ?? 0} confirmed ${
+              (todayStats?.bookingCount ?? 0) === 1 ? "booking" : "bookings"
+            }`}
+            emphasis
+          />
+          {counters.length > 0 ? (
+            <section aria-label="Today's counter sales" className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+              {counters.map((counter) => {
+                const sale = counterSales.find((row) => row.id === counter.id);
+                return (
+                  <Link
+                    key={counter.id}
+                    href={`/admin/bookings?${filtersToQuery(filters, { channel: "COUNTER", counterId: counter.id, status: "CONFIRMED" })}`}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-3 transition-colors hover:border-brand focus-visible:outline-brand"
+                  >
+                    <span className="min-w-0 text-sm font-medium">{counter.username} sales</span>
+                    <span className="shrink-0 font-bold tabular-nums">{formatPaise(sale?.total ?? 0)}</span>
+                  </Link>
+                );
+              })}
+            </section>
+          ) : null}
+        </div>
         <Stat label="Visitors expected" value={String(expected)} hint="Across all confirmed bookings" />
         <Stat
           label="Awaiting payment"
@@ -186,23 +202,6 @@ export default async function AdminDashboard({ searchParams }: PageProps<"/admin
             hint="Gateway · settles separately"
           />
         </dl>
-      </section>
-
-      <section className="mt-6 rounded-2xl border border-line bg-background p-4 sm:p-5">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold">Explore sales</h2>
-            <p className="text-muted mt-1 text-sm">Compare counters and filter by payment method or date.</p>
-          </div>
-          <Link href={`/admin/bookings?${salesQuery}`} className="text-brand text-sm font-semibold underline underline-offset-4">Tickets &amp; CSV export →</Link>
-        </div>
-        <FilterBar key={salesQuery} filters={filters} counters={counters} targetPath="/admin" />
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <Stat label="Filtered sales" value={formatPaise(filteredTotals.collectedPaise)} hint="Confirmed sales matching the filters" emphasis />
-          <Stat label="Tickets" value={String(filteredTotals.confirmedBookings)} hint={`${filteredTotals.online} online · ${filteredTotals.counter} counter`} />
-          <Stat label="Visitors" value={String(filteredTotals.visitors)} hint={`${formatVisitDate(filters.from)} — ${formatVisitDate(filters.to)}`} />
-        </div>
-        <CounterSales filters={filters} counters={counters} rows={counterSales} />
       </section>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-2">

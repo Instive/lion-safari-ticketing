@@ -70,7 +70,7 @@ export function FilterBar({ filters, counters, targetPath = "/admin/bookings" }:
           </button>
         ))}
         <span
-          className={`flex items-center gap-1.5 rounded-lg border px-2 py-1 text-sm ${
+          className={`flex w-full flex-col gap-1.5 rounded-lg border px-2 py-1 text-sm sm:w-auto sm:flex-row sm:items-center ${
             filters.preset === "custom" ? "border-brand" : "border-line"
           }`}
         >
@@ -81,7 +81,7 @@ export function FilterBar({ filters, counters, targetPath = "/admin/bookings" }:
             defaultValue={filters.from}
             aria-label="From date"
             onChange={(event) => apply({ range: "custom", from: event.target.value })}
-            className="bg-transparent text-sm outline-none"
+            className="min-w-0 w-full bg-transparent text-sm outline-none sm:w-auto"
           />
           <span className="text-muted text-xs">to</span>
           <input
@@ -90,7 +90,7 @@ export function FilterBar({ filters, counters, targetPath = "/admin/bookings" }:
             defaultValue={filters.to}
             aria-label="To date"
             onChange={(event) => apply({ range: "custom", to: event.target.value })}
-            className="bg-transparent text-sm outline-none"
+            className="min-w-0 w-full bg-transparent text-sm outline-none sm:w-auto"
           />
         </span>
       </div>
