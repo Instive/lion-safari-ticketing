@@ -109,9 +109,8 @@ export function proxy(request: NextRequest) {
 
   const onStaffHost = hostnameOf(request) === STAFF_HOST;
 
-  // The bare staff domain shows the staff launcher rather than 404ing. A
-  // rewrite (not a redirect) keeps the address bar on the domain the person
-  // typed, while `/` on the public host still serves the customer home.
+  // The bare staff domain resolves through /staff, which sends each signed-in
+  // role to its home page. The public host still serves the customer home.
   if (onStaffHost && pathname === "/") {
     return marked(NextResponse.rewrite(new URL("/staff", request.url)));
   }

@@ -4,23 +4,13 @@ import Link from "next/link";
 import { counterOptions, filtersToQuery, parseFilters, salesByCounter } from "@/domain/reports/bookings";
 
 import { db } from "@/db";
-import { boardingEvents, bookings, devices, tickets } from "@/db/schema";
+import { boardingEvents, bookings, tickets } from "@/db/schema";
 import { requirePageStaff } from "@/lib/auth/guards";
 import { formatPaise } from "@/lib/money";
-import { businessDate, formatLocalTime, formatVisitDate } from "@/lib/time";
+import { businessDate, formatVisitDate } from "@/lib/time";
 
 export const metadata = { title: "Admin — Lion Safari" };
 export const dynamic = "force-dynamic";
-
-const SECTIONS = [
-  { href: "/admin/bookings", label: "Bookings" },
-  { href: "/admin/rates", label: "Rates" },
-  { href: "/admin/books", label: "Ticket books" },
-  { href: "/admin/enquiries", label: "Group enquiries" },
-  { href: "/admin/reconciliation", label: "Reconciliation" },
-  { href: "/admin/devices", label: "Devices" },
-  { href: "/admin/staff", label: "Staff" },
-];
 
 export default async function AdminDashboard() {
   await requirePageStaff(["ADMIN"]);
@@ -96,18 +86,6 @@ export default async function AdminDashboard() {
     .from(bookings)
     .where(and(eq(bookings.status, "PENDING"), sql`${bookings.createdAt} >= ${last24h}`));
 
-  // Staleness is evaluated against the database clock, not the render's clock.
-  const scanners = await db
-    .select({
-      id: devices.id,
-      name: devices.name,
-      active: devices.active,
-      lastSyncAt: devices.lastSyncAt,
-      stale: sql<boolean>`(${devices.lastSyncAt} is null or ${devices.lastSyncAt} < now() - interval '5 minutes')`,
-    })
-    .from(devices)
-    .where(eq(devices.type, "SCANNER"));
-
   const expected = todayStats?.visitors ?? 0;
   const boarded = boardingStats?.boarded ?? 0;
   const unreconciled = boardingStats?.unreconciled ?? 0;
@@ -119,22 +97,9 @@ export default async function AdminDashboard() {
 
   return (
     <main className="mx-auto w-full max-w-5xl px-4 py-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-muted text-xs font-medium uppercase tracking-[0.14em]">Today</p>
-          <h1 className="mt-1 text-2xl font-semibold">{formatVisitDate(today)}</h1>
-        </div>
-        <nav className="flex flex-wrap gap-2">
-          {SECTIONS.map((s) => (
-            <Link
-              key={s.href}
-              href={s.href}
-              className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium transition-colors hover:border-brand hover:text-brand"
-            >
-              {s.label}
-            </Link>
-          ))}
-        </nav>
+      <div>
+        <p className="text-muted text-xs font-medium uppercase tracking-[0.14em]">Today</p>
+        <h1 className="mt-1 text-2xl font-semibold">{formatVisitDate(today)}</h1>
       </div>
 
       <div className="mt-6 grid items-start gap-3 lg:grid-cols-3">
@@ -276,41 +241,6 @@ export default async function AdminDashboard() {
           )}
         </section>
       </div>
-
-      <section className="mt-8">
-        <div className="mb-3 flex items-baseline justify-between">
-          <h2 className="font-semibold">Gate scanners</h2>
-          <Link href="/admin/devices" className="text-brand text-sm underline">
-            Manage
-          </Link>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {scanners.length === 0 ? (
-            <p className="text-muted rounded-xl border border-line bg-surface p-4 text-sm sm:col-span-2">
-              No scanner registered yet.{" "}
-              <Link href="/admin/devices" className="text-brand underline">
-                Register one
-              </Link>
-              .
-            </p>
-          ) : (
-            scanners.map((d) => (
-              <div
-                key={d.id}
-                className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4"
-              >
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{d.name}</p>
-                  <p className="text-muted text-sm">
-                    {d.lastSyncAt ? `Last sync ${formatLocalTime(d.lastSyncAt)}` : "Never synced"}
-                  </p>
-                </div>
-                <StatusPill active={d.active} stale={d.stale} />
-              </div>
-            ))
-          )}
-        </div>
-      </section>
     </main>
   );
 }
@@ -374,22 +304,6 @@ function Meter({ value, total, label }: { value: number; total: number; label: s
         {over ? " — more scans than tickets sold, worth checking" : null}
       </p>
     </div>
-  );
-}
-
-function StatusPill({ active, stale }: { active: boolean; stale: boolean }) {
-  const tone = !active
-    ? "bg-danger/10 text-danger"
-    : stale
-      ? "bg-accent/10 text-accent"
-      : "bg-ok/10 text-ok";
-  return (
-    <span
-      className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold ${tone}`}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {!active ? "Deactivated" : stale ? "Stale" : "Synced"}
-    </span>
   );
 }
 
