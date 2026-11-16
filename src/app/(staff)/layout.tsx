@@ -5,6 +5,7 @@ import { BrandMark } from "@/components/staff/brand-mark";
 import { EnvBanner } from "@/components/staff/env-banner";
 import { SignOutButton } from "@/components/staff/sign-out-button";
 import { StaffNav } from "@/components/staff/staff-nav";
+import { homeFor } from "@/lib/auth/guards";
 import { getSessionStaff } from "@/lib/auth/session";
 
 export default async function StaffLayout({ children }: LayoutProps<"/">) {
@@ -18,9 +19,7 @@ export default async function StaffLayout({ children }: LayoutProps<"/">) {
       <header className="no-print border-b border-line bg-surface">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 flex-wrap items-center gap-3">
-            {/* The staff launcher, not the public home — on a split host "/"
-                is the customer site and is not served here. */}
-            <Link href="/staff" aria-label="Staff home">
+            <Link href={homeFor(staff.role)} aria-label="Staff home">
               <BrandMark size="sm" />
             </Link>
             <StaffNav
