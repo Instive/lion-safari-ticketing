@@ -65,8 +65,6 @@ export function rangeFor(preset: RangePreset, from?: string, to?: string): { fro
       return { from: now, to: now };
     case "yesterday":
       return { from: shift(now, -1), to: shift(now, -1) };
-    case "last7":
-      return { from: shift(now, -6), to: now };
     case "last30":
       return { from: shift(now, -29), to: now };
     case "this_month":
@@ -98,7 +96,7 @@ export function parseFilters(params: RawParams): BookingFilters {
   const presetRaw = one(params, "range");
   const preset = (RANGE_PRESETS as readonly string[]).includes(presetRaw ?? "")
     ? (presetRaw as RangePreset)
-    : "this_month";
+    : "today";
 
   const { from, to } = rangeFor(preset, one(params, "from"), one(params, "to"));
 

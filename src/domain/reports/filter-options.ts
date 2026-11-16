@@ -14,7 +14,6 @@ import type { BookingStatus } from "@/db/schema";
 export const RANGE_PRESETS = [
   "today",
   "yesterday",
-  "last7",
   "last30",
   "this_month",
   "last_month",
@@ -25,7 +24,6 @@ export type RangePreset = (typeof RANGE_PRESETS)[number];
 export const PRESET_LABELS: Record<RangePreset, string> = {
   today: "Today",
   yesterday: "Yesterday",
-  last7: "Last 7 days",
   last30: "Last 30 days",
   this_month: "This month",
   last_month: "Last month",
